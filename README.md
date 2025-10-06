@@ -1,0 +1,1 @@
+# airnity-cli-releases
