@@ -10,19 +10,25 @@ To install `airnity` cli, go to the [Release Page](https://github.com/airnity/ai
 
 You can then rename the binary to its original name: `airnity` (or `airnity.exe` on windows), and move it to a place in your `$PATH` (eg: `~/.local/bin`)
 
-On mac and linux you need to change the permission to be able to execute it.
+# For mac Users
 
 ```shell
-# Example for MacOS
-mv airnity-darwin-arm64 ~/.local/bin/airnity
-chmod +x ~/.local/bin/airnity
+# Go in your download folder
+cd ~/Downloads
+# Copy and rename binary
+mv airnity-darwin-arm64 ~/.local/bin/airnity (Press Enter)
+# Change permissions
+chmod +x ~/.local/bin/airnity (Press Enter)
 # then use it with `airnity --help`
 ```
 
 ```shell
-# Example for Linux
-mv airnity-linux-amd64 ~/.local/bin/airnity
-chmod +x ~/.local/bin/airnity
+# Go in your download folder
+cd ~/Downloads
+# Copy and rename binary
+mv airnity-linux-amd64 ~/.local/bin/airnity (Press Enter)
+# Change permissions
+chmod +x ~/.local/bin/airnity (Press Enter)
 # then use it with `airnity --help`
 ```
 
@@ -39,7 +45,7 @@ Copy-Item "airnity-windows-amd64.exe" "$env:WINDIR\System32\airnity.exe" (Press 
 
 You are good to go!
 
-## External Requirements
+## External Requirements (Only for GCP and clusters access)
 
 This binary requires the following tools and components to be installed:
 
