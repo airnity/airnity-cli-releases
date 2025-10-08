@@ -104,7 +104,7 @@ airnity config set k8s.kubeconfigPath "~/.kube/custom-config"
 ```
 
 The `config set` command allows you to update individual configuration values. Valid keys include:
-- `username`: Your Airnity username (email domain will be automatically removed)
+- `username`: Your Airnity username (e.g john.doe if your email is john.doe@airnity.com)
 - `k8s.kubeconfigPath`: Path to your Kubernetes config file
 - `wazuh.enrollmentPassword`: Password for Wazuh agent enrollment
 
@@ -149,6 +149,9 @@ airnity wazuh print-logs
 
 # Display current Wazuh agent configuration
 airnity wazuh print-config
+
+# Display current Wazuh agent version
+airnity wazuh version
 ```
 
 ### CLI Updates
