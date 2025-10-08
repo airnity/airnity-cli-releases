@@ -16,9 +16,9 @@ You can then rename the binary to its original name: `airnity` (or `airnity.exe`
 # Go in your download folder
 cd ~/Downloads
 # Copy and rename binary
-mv airnity-darwin-arm64 ~/.local/bin/airnity (Press Enter)
+mv airnity-darwin-arm64 ~/.local/bin/airnity # (Press Enter)
 # Change permissions
-chmod +x ~/.local/bin/airnity (Press Enter)
+chmod +x ~/.local/bin/airnity # (Press Enter)
 # then use it with `airnity --help`
 ```
 
@@ -26,9 +26,9 @@ chmod +x ~/.local/bin/airnity (Press Enter)
 # Go in your download folder
 cd ~/Downloads
 # Copy and rename binary
-mv airnity-linux-amd64 ~/.local/bin/airnity (Press Enter)
+mv airnity-linux-amd64 ~/.local/bin/airnity # (Press Enter)
 # Change permissions
-chmod +x ~/.local/bin/airnity (Press Enter)
+chmod +x ~/.local/bin/airnity # (Press Enter)
 # then use it with `airnity --help`
 ```
 
@@ -37,9 +37,9 @@ chmod +x ~/.local/bin/airnity (Press Enter)
 ```shell
 # Open Windows PowerShell (Run as Administrator)
 # Go in your download folder 
-cd $env:USERPROFILE\Downloads (Press Enter)
+cd $env:USERPROFILE\Downloads # (Press Enter)
 # Then copy and rename binary
-Copy-Item "airnity-windows-amd64.exe" "$env:WINDIR\System32\airnity.exe" (Press Enter)
+Copy-Item "airnity-windows-amd64.exe" "$env:WINDIR\System32\airnity.exe" # (Press Enter)
 # then use it with `airnity.exe --help`
 ```
 
