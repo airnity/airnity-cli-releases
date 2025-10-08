@@ -22,6 +22,8 @@ chmod +x ~/.local/bin/airnity # (Press Enter)
 # then use it with `airnity --help`
 ```
 
+### For linux Users
+
 ```shell
 # Go in your download folder
 cd ~/Downloads
