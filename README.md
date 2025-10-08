@@ -10,7 +10,7 @@ To install `airnity` cli, go to the [Release Page](https://github.com/airnity/ai
 
 You can then rename the binary to its original name: `airnity` (or `airnity.exe` on windows), and move it to a place in your `$PATH` (eg: `~/.local/bin`)
 
-Then on mac and linux you need to change the permission to be able to execute it.
+On mac and linux you need to change the permission to be able to execute it.
 
 ```shell
 # Example for MacOS
@@ -26,10 +26,14 @@ chmod +x ~/.local/bin/airnity
 # then use it with `airnity --help`
 ```
 
+### For windows users
+
 ```shell
-# Example for Windows PowerShell (Run as Administrator)
-# Go in your download folder
-Copy-Item "airnity-windows-amd64.exe" "$env:WINDIR\System32\airnity.exe"
+# Open Windows PowerShell (Run as Administrator)
+# Go in your download folder 
+cd $env:USERPROFILE\Downloads (Press Enter)
+# Then copy and rename binary
+Copy-Item "airnity-windows-amd64.exe" "$env:WINDIR\System32\airnity.exe" (Press Enter)
 # then use it with `airnity.exe --help`
 ```
 
