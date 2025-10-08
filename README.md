@@ -10,7 +10,7 @@ To install `airnity` cli, go to the [Release Page](https://github.com/airnity/ai
 
 You can then rename the binary to its original name: `airnity` (or `airnity.exe` on windows), and move it to a place in your `$PATH` (eg: `~/.local/bin`)
 
-# For mac Users
+### For mac Users
 
 ```shell
 # Go in your download folder
