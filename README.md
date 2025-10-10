@@ -13,11 +13,19 @@ You can then rename the binary to its original name: `airnity` (or `airnity.exe`
 ### For mac users
 
 ```shell
+# Open Terminal app
+# You are now in your $HOME folder
+# Check if you have a ".local/bin" folder
+ls .local/bin # (Press Enter)
+# if you get a "not found" message create the folder hierarchy
+mkdir -p .local/bin # (Press Enter)
+# Add this new folder to the list of folders known for containing binaries
+echo "export PATH=$HOME/.local/bin:$PATH" >> .zshrc # (Press Enter)
 # Go in your download folder
-cd ~/Downloads
+cd ~/Downloads # (Press Enter)
 # Move and rename binary
 mv airnity-darwin-arm64 ~/.local/bin/airnity # (Press Enter)
-# Change permissions
+# Change permissions to make it executable
 chmod +x ~/.local/bin/airnity # (Press Enter)
 # then use it with `airnity --help`
 ```
