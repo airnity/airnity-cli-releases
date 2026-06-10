@@ -6,63 +6,42 @@ It is a Command Line Interface to automate several boring and repetitive tasks.
 
 ## Install
 
-To install `airnity` cli, go to the [Release Page](https://github.com/airnity/airnity-cli-releases/releases), and download the binary corresponding to your architecture.
+To install `airnity` cli, go to the [Release Page](https://github.com/airnity/airnity-cli/releases), and download the binary corresponding to your architecture.
 
 You can then rename the binary to its original name: `airnity` (or `airnity.exe` on windows), and move it to a place in your `$PATH` (eg: `~/.local/bin`)
 
-### For mac users
+Then on mac and linux you need to change the permission to be able to execute it.
 
 ```shell
-# Open Terminal app
-# You are now in your $HOME folder
-# Check if you have a ".local/bin" folder
-ls .local/bin # (Press Enter)
-# if you get a "not found" message create the folder hierarchy
-mkdir -p .local/bin # (Press Enter)
-# Add this new folder to the list of folders known for containing binaries
-echo "export PATH=$HOME/.local/bin:$PATH" >> .zshrc # (Press Enter)
-# Go in your download folder
-cd ~/Downloads # (Press Enter)
-# Move and rename binary
-mv airnity-darwin-arm64 ~/.local/bin/airnity # (Press Enter)
-# Change permissions to make it executable
-chmod +x ~/.local/bin/airnity # (Press Enter)
+# Example for MacOS
+mv airnity_1.22.0_darwin_arm64 ~/.local/bin/airnity
+chmod +x ~/.local/bin/airnity
 # then use it with `airnity --help`
 ```
 
-### For linux users
-
 ```shell
-# Go in your download folder
-cd ~/Downloads
-# Move and rename binary
-mv airnity-linux-amd64 ~/.local/bin/airnity # (Press Enter)
-# Change permissions
-chmod +x ~/.local/bin/airnity # (Press Enter)
+# Example for Linux
+mv airnity_1.22.0_linux_amd64 ~/.local/bin/airnity
+chmod +x ~/.local/bin/airnity
 # then use it with `airnity --help`
 ```
 
-### For windows users
-
 ```shell
-# Open Windows PowerShell (Run as Administrator)
-# Go in your download folder 
-cd $env:USERPROFILE\Downloads # (Press Enter)
-# Move and rename binary
-Copy-Item "airnity-windows-amd64.exe" "$env:WINDIR\System32\airnity.exe" # (Press Enter)
+# Example for Windows PowerShell (Run as Administrator)
+# Go in your download folder
+Copy-Item "airnity_1.22.0_windows_amd64.exe" "$env:WINDIR\System32\airnity.exe"
 # then use it with `airnity.exe --help`
 ```
 
 You are good to go!
 
-## External Requirements (Only for GCP and clusters access)
+## External Requirements
 
 This binary requires the following tools and components to be installed:
 
 1. **Google Cloud SDK (`gcloud`)**
 
    The `gcloud` command-line tool is essential for interacting with Google Cloud services.
-
    - [Installation Guide](https://cloud.google.com/sdk/docs/install)
 
 2. **`gke-gcloud-auth-plugin` Component**
@@ -72,6 +51,16 @@ This binary requires the following tools and components to be installed:
    ```shell
    gcloud components install gke-gcloud-auth-plugin
    ```
+
+3. **GitHub CLI (`gh`)** _(optional)_
+
+   Used by the interactive TUI to authenticate GitHub API calls (via `gh auth token`). Alternatively, set `$GITHUB_TOKEN`.
+   - [Installation Guide](https://cli.github.com/)
+
+4. **GPG (`gpg`)** _(optional)_
+
+   Required for the `airnity gpg generate` command.
+   - Usually pre-installed on macOS and Linux. On macOS you can install it via `brew install gnupg`.
 
 ## Config Management
 
@@ -99,6 +88,67 @@ airnity version
 
 Display version information including git commit and build details.
 
+### Authentication
+
+The CLI manages two independent auth systems: **Keycloak** (internal SSO) and **GCloud**.
+
+#### Unified Login/Logout
+
+```shell
+# Authenticate with both Keycloak and GCloud
+airnity login
+
+# Authenticate with Keycloak only
+airnity login -k
+
+# Authenticate with GCloud only
+airnity login -g
+
+# Logout from both Keycloak and GCloud
+airnity logout
+
+# Logout from Keycloak only
+airnity logout -k
+
+# Logout from GCloud only
+airnity logout -g
+```
+
+#### Keycloak Auth
+
+```shell
+# Authenticate with Keycloak (OAuth2 + PKCE)
+airnity auth login
+
+# Force re-authentication
+airnity auth login -f
+
+# Logout from Keycloak
+airnity auth logout
+
+# Show current authenticated user
+airnity auth whoami
+
+# Check authentication status
+airnity auth status
+
+# Print access token to stdout (useful for manual API calls)
+airnity auth print-access-token
+
+# Show raw token details (debug)
+airnity auth debug-tokens
+```
+
+#### GCloud Auth
+
+```shell
+# Check and authenticate GCloud credentials
+airnity gcloud login
+
+# Revoke GCloud tokens
+airnity gcloud logout
+```
+
 ### Configuration Management
 
 ```shell
@@ -106,15 +156,15 @@ Display version information including git commit and build details.
 airnity config get
 
 # Set individual configuration values
-airnity config set username "john.doe"
-airnity config set wazuh.enrollmentPassword "mypassword"
 airnity config set k8s.kubeconfigPath "~/.kube/custom-config"
+airnity config set ai.bifrostUrl "https://bifrost.airnity.io/anthropic"
 ```
 
-The `config set` command allows you to update individual configuration values. Valid keys include:
-- `username`: Your Airnity username (e.g john.doe if your email is john.doe@airnity.com)
+The `config set` command allows you to update individual configuration values using dot notation for nested keys. Valid keys are:
+
+- `editor`: Editor used by the CLI
 - `k8s.kubeconfigPath`: Path to your Kubernetes config file
-- `wazuh.enrollmentPassword`: Password for Wazuh agent enrollment
+- `ai.bifrostUrl`: Bifrost API base URL
 
 ### Kubernetes Management
 
@@ -129,22 +179,71 @@ airnity k8s get kubeconfigs
 airnity k8s get kubeconfigs --private-endpoints
 ```
 
-### Authentication
-
-```shell
-# Check and authenticate GCloud credentials
-airnity auth login
-
-# Revoke GCloud tokens
-airnity auth logout
-```
-
 ### Docker Registry
 
 ```shell
 # Login to GCP Docker registries
 airnity docker login
 ```
+
+### AI-Powered Developer Tools
+
+```shell
+# Generate an AI-powered commit message from staged changes
+airnity ai commit
+
+# Use a specific model
+airnity ai commit --model claude-sonnet
+
+# Show detailed context sent to AI
+airnity ai commit -v
+```
+
+The `ai commit` command analyzes staged git changes and generates conventional commit messages using Claude via Bifrost.
+
+### Claude Code Configuration
+
+```shell
+# Install the bifrost MCP server and configure ~/.claude/settings.json
+airnity claude configure
+
+# Toggle MCP servers on/off for the current project
+airnity claude mcp manage
+```
+
+The `claude` command manages Claude Code configuration: bifrost MCP setup and per-project MCP server permissions (written to `.claude/settings.local.json`).
+
+### Argo Render & Diff
+
+Run these from inside an `argo-*` repository.
+
+```shell
+# Stream every (app, cluster) variant as a multi-document YAML
+airnity argo render
+
+# Filter by app and/or cluster (both flags are repeatable)
+airnity argo render --app my-app --cluster my-cluster
+
+# Diff origin/main against your merged working tree
+airnity argo diff
+
+# Open the diff in difit (browser)
+airnity argo diff --browser
+```
+
+The `argo` command mirrors the TUI's Argo Render / Argo Diff tabs from the command line.
+
+### Airnity Root CA Certificate
+
+```shell
+# Show whether the Airnity Root CA is trusted system-wide
+airnity cert status
+
+# Install the Airnity Root CA into the OS trust store (requires sudo/admin)
+airnity cert install
+```
+
+The `cert` command manages trust of the embedded Airnity Root CA, required to access `*.airnity.private` URLs.
 
 ### Wazuh Security Management
 
@@ -158,7 +257,7 @@ airnity wazuh print-logs
 # Display current Wazuh agent configuration
 airnity wazuh print-config
 
-# Display current Wazuh agent version
+# Display Wazuh agent version
 airnity wazuh version
 ```
 
@@ -171,6 +270,44 @@ airnity upgrade
 # Use custom proxy for updates
 airnity upgrade --proxy-url https://my-proxy.example.com
 ```
+
+### Git Hooks Management
+
+```shell
+# Check git hooks installation status
+airnity githooks status
+
+# Install global git hooks (automatically configures Git)
+airnity githooks install
+
+# Create a backup of current git hooks
+airnity githooks backup
+
+# Remove global git hooks
+airnity githooks uninstall
+```
+
+The `githooks` command manages global git hooks that automate common development tasks for Airnity repositories. These hooks help maintain consistent development workflows and standards.
+
+**Important Note**: When git hooks are configured globally via `core.hooksPath`, they completely override repository-level hooks in `.git/hooks`. This is why the `airnity githooks` command installs all standard git hook files - even if a specific hook doesn't perform any action, it must exist to allow repository-level hooks to be called through the `run-repo-hook` mechanism.
+
+#### Features
+
+- **Automatic Ticket Number Insertion**: Extracts ticket numbers from branch names and appends them to commit messages
+  - Branch pattern `tid-123-feature-description` -> Commit message gets `(tid#123)` appended
+  - Branch pattern `bid-456-bug-fix` -> Commit message gets `(bid#456)` appended
+- **Organization Filtering**: Only executes for repositories in the `airnity` GitHub organization
+- **Smart Detection**: Won't duplicate ticket numbers if already present in the commit message
+- **Repository Hook Integration**: Allows individual repositories to override or extend global hooks
+
+#### Subcommands
+
+- **`status`**: Shows whether git hooks are installed, their location, installation date, and any missing hook files
+- **`install`**: Creates `~/.githooks` directory, installs all necessary hook files with proper permissions, and automatically configures Git to use them globally (`git config --global core.hooksPath ~/.githooks`)
+- **`backup`**: Creates a timestamped backup of your current git hooks configuration (useful before making changes)
+- **`uninstall`**: Removes the global git hooks installation completely
+
+The git hooks are installed globally in your HOME directory (`~/.githooks`) and work with all Git repositories in your user account. The installation process automatically configures Git to use these hooks globally.
 
 ## GPG Keys Generation
 
@@ -195,6 +332,7 @@ Once the key generation process is complete, the following files will be availab
 
 ### Next Steps: Storing Keys/Passphrase & import into your keyring
 
-After key generation, securely store your master key and passphrase. Import the keys into your keyring and verify they're working properly.
+To save, import the keys into your keyring and verify that it is working, you can follow the documentation here :
+https://airnity.fibery.io/Knowledge_Management/How_to/Generate-and-manage-your-GPG-keys-153/anchor=Backup--c7b633bb-103c-4934-94ca-e4456b267071
 
-For cleanup, delete the temporary folder mentioned above (e.g., `/tmp/gnupg_202410141642_Fo2GaO`).
+For the cleanup part you just have to delete the folder mentioned above (e.g., `/tmp/gnupg_202410141642_Fo2GaO`)
