@@ -6,36 +6,19 @@ It is a Command Line Interface to automate several boring and repetitive tasks.
 
 ## Install
 
-To install `airnity` cli, go to the [Release Page](https://github.com/airnity/airnity-cli-releases/releases), and download the binary corresponding to your architecture.
-
-You can then rename the binary to its original name: `airnity` (or `airnity.exe` on windows), and move it to a place in your `$PATH` (eg: `~/.local/bin`)
-
-Then on mac and linux you need to change the permission to be able to execute it.
-
-<!-- x-release-please-start-version -->
+Auto-detects your OS and architecture, downloads the latest release, and installs it (to `~/.local/bin` on macOS/Linux, or `%LOCALAPPDATA%\airnity\bin` on Windows):
 
 ```shell
-# Example for MacOS
-mv airnity-darwin-arm64 ~/.local/bin/airnity
-chmod +x ~/.local/bin/airnity
-# then use it with `airnity --help`
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/airnity/airnity-cli-releases/main/install.sh | sh
 ```
 
-```shell
-# Example for Linux
-mv airnity-linux-amd64 ~/.local/bin/airnity
-chmod +x ~/.local/bin/airnity
-# then use it with `airnity --help`
+```powershell
+# Windows PowerShell
+irm https://raw.githubusercontent.com/airnity/airnity-cli-releases/main/install.ps1 | iex
 ```
 
-```shell
-# Example for Windows PowerShell (Run as Administrator)
-# Go in your download folder
-Copy-Item "airnity-windows-amd64.exe" "$env:WINDIR\System32\airnity.exe"
-# then use it with `airnity.exe --help`
-```
-
-<!-- x-release-please-end -->
+On macOS/Linux make sure `~/.local/bin` is in your `$PATH` (the Windows script adds its dir to your PATH automatically). Once installed, upgrade later with `airnity upgrade`.
 
 You are good to go!
 
