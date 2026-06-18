@@ -27,10 +27,6 @@ arm64 | aarch64) ARCH=arm64 ;;
 *) err "unsupported architecture: $(uname -m)" ;;
 esac
 
-if [ "$OS" = linux ] && [ "$ARCH" = arm64 ]; then
-	err "no linux/arm64 release is published; build from source instead"
-fi
-
 ASSET="airnity-${OS}-${ARCH}"
 
 TMP="$(mktemp -d)"
