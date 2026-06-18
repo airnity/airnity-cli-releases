@@ -145,6 +145,10 @@ airnity config get
 # Set individual configuration values
 airnity config set k8s.kubeconfigPath "~/.kube/custom-config"
 airnity config set ai.bifrostUrl "https://bifrost.airnity.io/anthropic"
+
+# Register this machine's Tailscale IP with the IDP backend
+airnity config register-tailscale-ip            # auto-detects via `tailscale ip -4`
+airnity config register-tailscale-ip 100.1.2.3  # or pass the IP explicitly
 ```
 
 The `config set` command allows you to update individual configuration values using dot notation for nested keys. Valid keys are:
@@ -152,6 +156,8 @@ The `config set` command allows you to update individual configuration values us
 - `editor`: Editor used by the CLI
 - `k8s.kubeconfigPath`: Path to your Kubernetes config file
 - `ai.bifrostUrl`: Bifrost API base URL
+
+The `config register-tailscale-ip` command registers this machine's Tailscale IP with the IDP backend. With no argument the IP is auto-detected by running `tailscale ip -4`; pass an explicit IP to override detection.
 
 ### Kubernetes Management
 
@@ -220,17 +226,25 @@ airnity argo diff --browser
 
 The `argo` command mirrors the TUI's Argo Render / Argo Diff tabs from the command line.
 
-### Airnity Root CA Certificate
+### Certificates
 
 ```shell
 # Show whether the Airnity Root CA is trusted system-wide
-airnity cert status
+airnity certs ca status
 
 # Install the Airnity Root CA into the OS trust store (requires sudo/admin)
-airnity cert install
+airnity certs ca install
+
+# Print your personal TLS material (ca.crt, tls.crt, tls.key) labeled
+airnity certs user
+
+# Print a single key's PEM contents (pipe-friendly)
+airnity certs user tls.crt | openssl x509 -noout -subject
 ```
 
-The `cert` command manages trust of the embedded Airnity Root CA, required to access `*.airnity.private` URLs.
+The `certs ca` commands manage trust of the embedded Airnity Root CA, required to access `*.airnity.private` URLs.
+
+The `certs user` command prints your personal TLS certificate and key issued by the IDP backend. With no argument all keys are printed labeled; pass a single key name (`ca.crt`, `tls.crt`, or `tls.key`) to print only its PEM contents to stdout.
 
 ### Wazuh Security Management
 
