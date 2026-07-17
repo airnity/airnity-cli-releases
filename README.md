@@ -49,6 +49,18 @@ This binary requires the following tools and components to be installed:
    Required for the `airnity gpg generate` command.
    - Usually pre-installed on macOS and Linux. On macOS you can install it via `brew install gnupg`.
 
+5. **`psql` client** _(optional — only for `airnity db connect`)_
+
+   The PostgreSQL command-line client, needed for the psql action (`--psql` / the *databases* menu item). Not required for `--gui` or `--proxy`.
+   - macOS: `brew install libpq` (then add it to your `PATH`, e.g. `brew link --force libpq`), or `brew install postgresql@16`.
+   - Debian/Ubuntu: `sudo apt install postgresql-client`
+   - Fedora/RHEL: `sudo dnf install postgresql`
+
+6. **pgAdmin** _(optional — only for `airnity db connect --gui`)_
+
+   Required for the pgAdmin action. See the [db connect requirements](#requirements) below for the full setup (desktop app **and** server package, plus a one-time first launch).
+   - [Download pgAdmin](https://www.pgadmin.org/download/)
+
 ## Config Management
 
 The `airnity` CLI uses the config file `${HOME}/.airnity.yaml`, which is created with default values if it doesn't exist.
@@ -136,6 +148,19 @@ airnity gcloud login
 airnity gcloud logout
 ```
 
+#### Local HTTP Server
+
+```shell
+# Start a local HTTP server on 127.0.0.1:47823 (Ctrl+C to stop)
+airnity serve
+
+# Override the default port
+airnity serve --port 9001
+
+# From another terminal, once running:
+curl http://127.0.0.1:47823/auth/token
+```
+
 ### Configuration Management
 
 ```shell
@@ -179,6 +204,111 @@ airnity k8s get kubeconfigs --private-endpoints
 airnity docker login
 ```
 
+### Database Management
+
+Connect to Cloud SQL and AlloyDB instances over a local, IAM-authenticated proxy — no
+passwords, no IP allow-listing. `airnity db connect` discovers the engines you can reach,
+lets you pick one, then either drops you into a `psql` session, opens pgAdmin, or just
+holds a proxy open for your own tools.
+
+```shell
+# Interactive: pick an engine, then choose an action from the menu
+airnity db connect
+
+# Same command, short aliases also work
+airnity db c
+airnity db conn
+```
+
+#### Interactive flow
+
+1. **Engine picker** — lists every Cloud SQL / AlloyDB engine. Engines you lack a database
+   account on are greyed out at the bottom under a "No access" divider and can't be
+   selected.
+2. **Action menu** — after choosing an engine, pick what to do (default highlight on
+   *databases*). Press the bracketed shortcut key, or move with `↑/↓` and press `enter`:
+
+   ```text
+   Connect to <engine>
+
+   > [d] databases      browse and psql into one
+     [g] pgAdmin GUI    open pgadmin (whole engine)
+     [p] proxy only     keep a local proxy open (whole engine)
+   ```
+
+   - **`[d]` databases** — lists the databases in the engine, you pick one, and it opens a
+     `psql` session connected to it. (If the engine has a single database it's selected
+     automatically; if it reports none, it falls back to `postgres`.)
+   - **`[g]` pgAdmin GUI** — imports the engine as a server into pgAdmin and launches it.
+     pgAdmin browses all databases itself, so there's no database picker. The CLI holds the
+     proxy open until you quit pgAdmin (or press `q`).
+   - **`[p]` proxy only** — starts the proxy and prints a ready-to-paste connection string,
+     then stays running until you press `q`. Point any client (psql, DBeaver, an app) at
+     `127.0.0.1:<port>`.
+
+3. Press `q` / `ctrl+c` at any screen to tear down the proxy and quit.
+
+#### Flags
+
+Action flags skip the menu and run that action directly. They are **mutually exclusive**.
+
+| Flag | Description |
+| --- | --- |
+| `--psql` | Open an interactive `psql` session (goes straight to the database picker). |
+| `--gui` | Open the selected engine in pgAdmin. |
+| `--proxy` | Start a local proxy and keep it open (no psql / pgAdmin). |
+| `--engine <name>` | Connect directly to this engine by name, skipping the engine picker. Errors if the name is unknown, matches more than one engine, or you lack access to it. Supports shell completion (served from the local cache — no network). |
+| `--db <name>` | Connect directly to this database, skipping the database picker. Applies to the psql path only; ignored (with a warning) for `--proxy` / `--gui`. |
+| `--refresh` | Bypass the cached instance list and re-scan GCP. |
+
+With no action flag the interactive menu is shown. `--engine` only skips the *engine*
+picker — the action menu still appears unless an action flag is also given.
+
+```shell
+# Skip the menu: psql straight into a chosen database
+airnity db connect --engine my-engine --db my-app --psql
+
+# Open pgAdmin for a specific engine, no prompts
+airnity db connect --engine my-engine --gui
+
+# Just give me a proxy on this engine
+airnity db connect --engine my-engine --proxy
+
+# Force a fresh scan of available engines
+airnity db connect --refresh
+```
+
+#### Requirements
+
+- Authenticated with gcloud (`airnity gcloud login`) — the proxy authenticates as your
+  active gcloud account via IAM, so the matching database role must already exist on the
+  engine. If your gcloud login or application-default credentials are missing or expired,
+  `db connect` re-authenticates in place before connecting.
+- An interactive terminal (the command refuses to run otherwise). `--plain` / `--no-color`
+  render the TUI without color but don't disable it.
+
+Each action has its own external dependency. They are independent — you only need the tool
+for the action you actually use (`--proxy` needs neither):
+
+- **psql action (`--psql` / *databases*)** — `psql` must be on your `PATH`. If it isn't,
+  the psql action fails with `psql not found — install PostgreSQL client tools`; the GUI and
+  proxy actions are unaffected.
+  - macOS: `brew install libpq` (then `brew link --force libpq`), or `brew install postgresql@16`.
+  - Debian/Ubuntu: `sudo apt install postgresql-client`
+  - Fedora/RHEL: `sudo dnf install postgresql`
+
+- **pgAdmin action (`--gui`)** — needs a working pgAdmin **desktop** install, and specifically:
+  1. The `pgadmin4` launcher on your `PATH` — otherwise `pgadmin4 not found on PATH`.
+  2. The pgAdmin **server** files (`web/setup.py` and the bundled `venv`), i.e. the
+     `pgadmin4-server` package — otherwise `pgAdmin server files not found … is pgadmin4-server installed?`.
+  3. pgAdmin launched **once** beforehand, so its config database (`~/.pgadmin/pgadmin4.db`)
+     exists — otherwise `pgAdmin desktop database not found … launch pgAdmin once first`.
+
+  Install from the [pgAdmin download page](https://www.pgadmin.org/download/). On Debian/Ubuntu
+  the `pgadmin4-desktop` package pulls in `pgadmin4-server`; after installing, run pgAdmin once
+  and close it before using `--gui`. Also quit pgAdmin before connecting — the import step needs
+  exclusive access to its config database.
+
 ### AI-Powered Developer Tools
 
 ```shell
@@ -197,7 +327,8 @@ The `ai commit` command analyzes staged git changes and generates conventional c
 ### Claude Code Configuration
 
 ```shell
-# Install the bifrost MCP server and configure ~/.claude/settings.json
+# Install the bifrost MCP server and configure Claude Code's global settings.json
+# (honors CLAUDE_CONFIG_DIR if set, defaulting to ~/.claude/settings.json)
 airnity claude configure
 
 # Toggle MCP servers on/off for the current project
@@ -337,3 +468,36 @@ To save, import the keys into your keyring and verify that it is working, you ca
 https://airnity.fibery.io/Knowledge_Management/How_to/Generate-and-manage-your-GPG-keys-153/anchor=Backup--c7b633bb-103c-4934-94ca-e4456b267071
 
 For the cleanup part you just have to delete the folder mentioned above (e.g., `/tmp/gnupg_202410141642_Fo2GaO`)
+
+## Shell Completion
+
+`airnity` supports tab-completion for commands, flags, and dynamic values such as
+`db connect --engine <TAB>` (the engine list is served from the local cache — no network).
+
+Completion is opt-in: you load a small script once that tells your shell to ask `airnity`
+for suggestions. The script does **not** contain the suggestions themselves — they are
+fetched live from the binary on each `<TAB>`, so they stay current.
+
+Pick your shell:
+
+```sh
+# zsh (oh-my-zsh) — autoloaded on next shell start
+airnity completion zsh > ~/.oh-my-zsh/cache/completions/_airnity
+# zsh (plain) — ensure `autoload -Uz compinit; compinit` is in ~/.zshrc, then:
+airnity completion zsh > "${fpath[1]}/_airnity"
+
+# bash — requires the bash-completion package
+airnity completion bash | sudo tee /etc/bash_completion.d/airnity > /dev/null
+
+# fish
+airnity completion fish > ~/.config/fish/completions/airnity.fish
+
+# powershell — add to your $PROFILE
+airnity completion powershell | Out-String | Invoke-Expression
+```
+
+Restart your shell (`exec zsh` / open a new terminal) afterwards. If completion still
+falls back to filenames in zsh, clear the completion cache once: `rm -f ~/.zcompdump* && exec zsh`.
+
+Run `airnity completion <shell> --help` for the details of any shell. Re-run the command
+above after upgrading `airnity` if new commands or flags were added.
