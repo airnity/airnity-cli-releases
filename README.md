@@ -335,7 +335,7 @@ airnity claude configure
 airnity claude mcp manage
 ```
 
-The `claude` command manages Claude Code configuration: bifrost MCP setup and per-project MCP server permissions (written to `.claude/settings.local.json`).
+The `claude` command manages Claude Code configuration: bifrost MCP setup and per-project MCP server permissions (written to `.claude/settings.local.json`). In an interactive terminal, `claude configure` also walks through a short questionnaire to set the `model` (recommended: `opusplan`) and `effortLevel` (recommended: `medium`), plus optional toggles (bundled skills, dynamic workflows, artifacts, and a few tool permissions) to reduce Claude Code's context usage.
 
 ### Argo Render & Diff
 
