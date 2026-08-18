@@ -377,7 +377,22 @@ airnity claude configure
 airnity claude mcp manage
 ```
 
-The `claude` command manages Claude Code configuration: bifrost MCP setup and per-project MCP server permissions (written to `.claude/settings.local.json`). In an interactive terminal, `claude configure` also walks through a short questionnaire to set the `model` (recommended: `opusplan`) and `effortLevel` (recommended: `medium`), plus optional toggles (bundled skills, dynamic workflows, artifacts, and a few tool permissions) to reduce Claude Code's context usage.
+The `claude` command manages Claude Code configuration: bifrost MCP setup and per-project MCP server permissions (written to `.claude/settings.local.json`). In an interactive terminal, `claude configure` walks through a short questionnaire, starting with your **default provider**:
+
+- **Claude Team subscription** — route through your Claude Team subscription, no per-token billing (requires a Team seat)
+- **bifrost** — route through the Airnity bifrost proxy, billed per token via the Google Cloud API
+
+Then the usual `model` (recommended: `opusplan`) and `effortLevel` (recommended: `medium`), plus optional toggles (bundled skills, dynamic workflows, artifacts, and a few tool permissions) to reduce Claude Code's context usage.
+
+Regardless of which provider you pick as your default, `configure` always (re)writes `~/.claude/bifrost-settings.json`, a small overlay containing only the bifrost-specific settings. This means bifrost is always one command away, even on a Claude-Team-default machine: `configure`'s summary prints a one-time alias to add to your shell config —
+
+```shell
+alias claude-bifrost='claude --settings ~/.claude/bifrost-settings.json'
+```
+
+Add it once to `~/.zshrc` or `~/.bashrc` (`configure` tells you which, based on `$SHELL`), then fall back to bifrost for a single session whenever you hit your subscription's usage cap: `claude-bifrost`, or `claude-bifrost --continue` to resume the conversation you were having on your Claude Team subscription. This is a launch-time choice, not a persistent toggle — it never changes your configured default, and there's no separate `airnity` subcommand for it.
+
+Whenever a session is routed through bifrost — whether it's your configured default or a one-off `claude-bifrost` fallback — Claude Code shows a `companyAnnouncements` banner at startup reminding you it's billed per token. This never touches your `statusLine` or any other personal customization: `~/.claude/bifrost-settings.json` only ever describes a bifrost session, so the banner it carries doesn't need to check anything at runtime.
 
 ### Argo Render & Diff
 
