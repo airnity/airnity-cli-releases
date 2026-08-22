@@ -49,16 +49,16 @@ This binary requires the following tools and components to be installed:
    Required for the `airnity gpg generate` command.
    - Usually pre-installed on macOS and Linux. On macOS you can install it via `brew install gnupg`.
 
-5. **`psql` client** _(optional — only for `airnity db connect`)_
+5. **`psql` client** _(optional — only for `airnity db connect psql` / `db browse`'s `d`)_
 
-   The PostgreSQL command-line client, needed for the psql action (`--psql` / the *databases* menu item). Not required for `--gui` or `--proxy`.
+   The PostgreSQL command-line client. Not required for `db connect proxy`, `db connect pgadmin`, or `db query`.
    - macOS: `brew install libpq` (then add it to your `PATH`, e.g. `brew link --force libpq`), or `brew install postgresql@16`.
    - Debian/Ubuntu: `sudo apt install postgresql-client`
    - Fedora/RHEL: `sudo dnf install postgresql`
 
-6. **pgAdmin** _(optional — only for `airnity db connect --gui`)_
+6. **pgAdmin** _(optional — only for `airnity db connect pgadmin` / `db browse`'s `g`)_
 
-   Required for the pgAdmin action. See the [db connect requirements](#requirements) below for the full setup (desktop app **and** server package, plus a one-time first launch).
+   See the [Database Management requirements](#requirements) below for the full setup (desktop app **and** server package, plus a one-time first launch).
    - [Download pgAdmin](https://www.pgadmin.org/download/)
 
 ## Config Management
@@ -206,140 +206,178 @@ airnity docker login
 
 ### Database Management
 
-Connect to Cloud SQL and AlloyDB instances over a local, IAM-authenticated proxy — no
-passwords, no IP allow-listing. `airnity db connect` discovers the engines you can reach,
-lets you browse their databases side by side, then either drops you into a `psql` session,
-opens pgAdmin, or just holds a proxy open for your own tools.
+Connect to Cloud SQL and AlloyDB engines over a local, IAM-authenticated proxy — no
+passwords, no IP allow-listing. Find a target with `db list`, then either `db query` for
+headless SQL, `db connect proxy/psql/pgadmin` for a direct connection, or `db browse` for
+an interactive picker. The command name alone decides whether you get a picker — no flag
+ever changes which of these you get.
 
 ```shell
 # Interactive: browse engines and their databases, then choose an action
-airnity db connect
-
-# Same command, short aliases also work
-airnity db c
-airnity db conn
+airnity db browse
 ```
 
-#### Interactive flow
+#### Discovery
 
-The screen is two columns: engines on the left, the focused engine's databases on the
-right. Moving the cursor down the engine list loads that engine's databases into the right
-pane, so you can look before committing to anything.
+```shell
+# Every engine, reachable or not, with the reason when it isn't
+airnity db list engines
+airnity db list engines core-network-prod
+
+# Databases across every engine you can reach
+airnity db list databases
+airnity db list databases boss
+airnity db list databases --engine backend-prod
+```
+
+- **`db list engines [pattern]`** — every Cloud SQL / AlloyDB engine you can connect to.
+  Engines you have no database account or no IAM permission on are not listed at all: they
+  are not targets you can act on. `pattern` is a case-insensitive substring of the engine
+  name.
+- **`db list databases [pattern] [--engine <substring>]`** — the databases inside every
+  engine you can connect to. `pattern` is a case-insensitive substring of the database
+  name; `--engine` narrows to engines whose name contains it, and errors if it names no
+  engine you can reach. No row limit on either command — narrow with the pattern.
+
+If you name an engine you cannot reach explicitly (`--engine`, `db query`, `db connect …`),
+the command still tells you exactly why and who to ask — a missing database account is
+fixed by the engine's administrator, a missing IAM permission in GCP, and a failed check is
+explained in the `AIRNITY_DB_DEBUG=1` log. That is the only place a denial is ever
+surfaced; discovery never mentions engines you have no access to.
+
+A pattern matching nothing suggests up to 5 nearest names by edit distance instead of
+returning an empty list:
+
+```shell
+$ airnity db list databases bifrsot
+no database matching "bifrsot" — nearest: bifrost, ...
+```
+
+#### Connecting
+
+```shell
+# Headless SQL — no psql, no local port, scriptable
+airnity db query --engine core-prod-primary --db boss "select count(*) from users"
+
+# A local proxy in front of the whole engine, held open until Ctrl+C
+airnity db connect proxy --engine core-prod-primary
+airnity db connect proxy --engine core-prod-primary --db boss
+airnity db connect proxy --engine core-prod-primary --port 5433
+
+# An interactive psql session (needs a terminal)
+airnity db connect psql --engine core-prod-primary --db boss
+
+# pgAdmin, imported and launched automatically
+airnity db connect pgadmin --engine core-prod-primary
+```
+
+- **`db query --engine <name> --db <name> "<sql>"`** — runs the SQL in-process (no `psql`
+  install, no local port, no terminal) and prints the result. Both flags are required. The
+  SQL is a required positional argument; pass `-` to read it from stdin instead. There is
+  no read-only restriction — anything `psql` could run, this can too.
+- **`db connect proxy --engine <name> [--db <name>] [--port <n>]`** — starts the proxy and
+  prints a ready-to-paste connection string, then blocks until interrupted (`Ctrl+C` or a
+  signal). It fronts the whole engine — the printed database can be swapped for any other
+  one on it via the connection string's `dbname=...`. `--db` only sets which one the printed
+  strings default to (defaulting to `postgres` itself when omitted); `--port` picks a fixed
+  local port instead of a random one. A proxy that failed to connect exits with the
+  underlying cause instead of `0`.
+- **`db connect psql --engine <name> --db <name>`** — opens an interactive `psql` session.
+  Needs a terminal and never falls back to a picker; for scripted SQL use `db query`
+  instead.
+- **`db connect pgadmin --engine <name>`** — imports the engine as a server into pgAdmin
+  and launches it, holding the proxy open until you close pgAdmin (or press `Ctrl+C`).
+  pgAdmin browses every database itself, which is why this acts on the whole engine rather
+  than one database. Works with the Linux/WSL package (`pgadmin4` on `PATH`) and with the
+  macOS application bundle, including `brew install --cask pgadmin4`, which puts no
+  `pgadmin4` on `PATH`. Launch pgAdmin once before first use so its config database exists.
+
+`--engine` takes the name as `db list engines` shows it (for AlloyDB, the instance alone)
+or the full `cluster/instance` form; it errors if the name is unknown, matches more than
+one engine, or you lack access to it, and supports shell completion (served from the local
+cache — no network).
+
+Every command above accepts `--refresh` (bypass the cache and re-scan GCP). The commands
+that print data — `db list engines`, `db list databases`, `db query`, `db connect proxy` —
+also accept `-o json`, which always prints exactly one JSON object on stdout, on both
+success and failure, with the exit code carrying the verdict; their text output is a table
+with a header, or a header-only TSV when piped. `db browse`, `db connect psql` and
+`db connect pgadmin` hand the terminal to a UI instead of printing data, so they reject
+`-o json` naming the command that does what you wanted rather than accepting it and
+printing prose anyway. A command missing its target (e.g. `db query` without `--engine`/`--db`, or
+`db connect psql` with no terminal attached) fails with a message naming the exact command
+to run instead — it never falls back to `db browse`.
+
+#### `db browse`
+
+The only picker: a two-pane TUI listing every engine you can reach and, once one is
+focused, its databases.
 
 ```text
 ╭─ engines ───────────────────╮ ╭─ databases in backend-prod  (6 databases) ─╮
 │ ▸ alloydb   backend-prod    │ │   postgres                                 │
 │   cloudsql  platform-prod   │ │ ▸ boss                                     │
-│ ── No access (request a DB… │ │   facteur                                  │
-│ ✗ alloydb   core-network-p… │ │   fedex                                    │
+│   alloydb   core-network-d… │ │   facteur                                  │
+│   alloydb   platform-it     │ │   fedex                                    │
 ╰─────────────────────────────╯ ╰────────────────────────────────────────────╯
 ```
 
-1. **Engine pane** — every Cloud SQL / AlloyDB engine. Engines you can't reach are greyed
-   out at the bottom and can't be selected, grouped under the reason so you know who to ask:
-   *No access (request a DB account)* when GCP has no database user record for you on the
-   engine. *Access check failed* means the CLI could not ask GCP at all — set
-   `AIRNITY_DB_DEBUG=1` and look at the log to see why.
-   `→` or `enter` moves to the databases; `ctrl+r` re-scans GCP.
-2. **Database pane** — `/` filters, `r` re-lists that one engine. `enter` opens the action
-   popover for the highlighted database:
-
-   ```text
-   Connect to boss
-
-   > [d] psql             open a psql session on boss
-     [g] pgAdmin GUI      open the whole engine in pgAdmin
-     [p] proxy only       open a proxy to the whole engine
-   ```
-
-   The same three letters work directly from the database pane, without opening the popover.
-
-   - **`[d]` psql** — opens a `psql` session on the highlighted database.
-   - **`[g]` pgAdmin GUI** — imports the engine as a server into pgAdmin and launches it.
-     Works with the Linux/WSL package (`pgadmin4` on PATH) and with the macOS application
-     bundle, including `brew install --cask pgadmin4`, which puts no `pgadmin4` on PATH.
-     Launch pgAdmin once before first use so its config database exists.
-     pgAdmin browses every database itself, which is why this acts on the whole engine
-     rather than the one you highlighted. The CLI holds the proxy open until you quit
-     pgAdmin (or press `q`).
-   - **`[p]` proxy only** — starts the proxy and prints a ready-to-paste connection string,
-     then stays running until you press `q`. It fronts the whole engine, so you choose the
-     database in the connection string. Point any client (psql, DBeaver, an app) at
-     `127.0.0.1:<port>`.
-
-3. **Coming back.** Leaving psql (`ctrl+D` or `\q`), quitting pgAdmin, or pressing `esc` on
+1. **Engine pane** — every engine you can connect to, and only those: every row is one the
+   actions below work on. `→` or `enter` moves to the databases; `ctrl+r` re-scans GCP.
+2. **Database pane** — `/` filters, `r` re-lists that one engine. `enter` on the highlighted
+   database opens a popup to pick psql, pgAdmin, or a bare proxy (arrow keys move, `enter`
+   confirms); press `d`, `g`, or `p` instead to skip the popup and commit straight away.
+   These call the exact same functions as `db connect proxy/psql/pgadmin`.
+3. **Proxy screen** (after `p`) — `↑↓` moves over the connection details and `enter` copies
+   the highlighted one to the clipboard.
+4. **Coming back.** Leaving psql (`ctrl+D` or `\q`), quitting pgAdmin, or pressing `esc` on
    the proxy screen hands the browser back with its caches intact, so trying another
-   database costs no re-scan. `q` / `ctrl+c` tears down the proxy and quits for good.
-   A one-shot invocation that never showed the browser (`--engine` with `--gui`/`--proxy`,
-   or `--engine --db --psql`) exits instead of dropping you into a view you never asked for,
-   and a session that ended because the connection failed exits with the cause rather than
+   database costs no re-scan. `q` / `ctrl+c` tears down the proxy and quits for good. A
+   session that ended because the connection failed exits with the cause rather than
    painting over it.
 
-#### Flags
-
-Action flags skip the menu and run that action directly. They are **mutually exclusive**.
-
-| Flag | Description |
-| --- | --- |
-| `--psql` | Open an interactive `psql` session (`enter` on a database connects instead of opening the popover). |
-| `--gui` | Open the selected engine in pgAdmin. |
-| `--proxy` | Start a local proxy and keep it open (no psql / pgAdmin). |
-| `--engine <name>` | Connect directly to this engine by name. Takes the name as the picker shows it (for AlloyDB, the instance) or the full `cluster/instance` form. Errors if the name is unknown, matches more than one engine, or you lack access to it. Supports shell completion (served from the local cache — no network). |
-| `--db <name>` | Connect directly to this database, skipping the database pane. Applies to the psql path only; ignored (with a warning) for `--proxy` / `--gui`. |
-| `--refresh` | Bypass the cached instance list and re-scan GCP. |
-
-With no action flag the action popover is shown. `--engine` starts on that engine with the
-keyboard already in the database pane; `--gui` and `--proxy` act on the engine alone, so
-combined with `--engine` they run immediately without showing the browser.
-
-```shell
-# Skip the menu: psql straight into a chosen database
-airnity db connect --engine my-engine --db my-app --psql
-
-# Open pgAdmin for a specific engine, no prompts
-airnity db connect --engine my-engine --gui
-
-# Just give me a proxy on this engine
-airnity db connect --engine my-engine --proxy
-
-# Force a fresh scan of available engines
-airnity db connect --refresh
-```
+`db browse` takes only `--refresh`; there is no `--engine`/`--db` to skip the picker — find
+those with `db list` and reach for `db query` or `db connect` instead.
 
 #### Troubleshooting connection failures
 
 Set `AIRNITY_DB_DEBUG=1` to append connection diagnostics to `~/.airnity/db-debug.log`:
 one line per engine access check (duration and the raw error) plus one line per failed
-proxy connection once you've picked a database. The error screen then prints the log path.
+proxy connection once you've picked a database. `db browse`'s error screen then prints the
+log path.
 
 ```shell
-AIRNITY_DB_DEBUG=1 airnity db connect --refresh
+AIRNITY_DB_DEBUG=1 airnity db browse --refresh
 ```
 
-It writes to a file rather than the terminal because the picker is a full-screen TUI.
+It writes to a file rather than the terminal because the browser is a full-screen TUI.
 This is the fastest way to report a problem: the log holds the raw cause behind a failed
-access check or a failed proxy connection, neither of which the picker itself shows.
+access check or a failed proxy connection, neither of which the browser itself shows.
 
 #### Requirements
 
 - Authenticated with gcloud (`airnity gcloud login`) — the proxy authenticates as your
   active gcloud account via IAM, so the matching database role must already exist on the
   engine. If your gcloud login or application-default credentials are missing or expired,
-  `db connect` re-authenticates in place before connecting.
-- An interactive terminal (the command refuses to run otherwise). `--plain` / `--no-color`
-  render the TUI without color but don't disable it.
+  every `db` command re-authenticates in place before connecting.
+- An interactive terminal for `db browse` and `db connect psql` (an interactive `psql`
+  session needs one to attach to). `db query`, `db connect proxy`, and `db connect pgadmin`
+  fully name the target and run without one. `--plain` / `--no-color` render `db browse`
+  without color but don't disable it.
 
-Each action has its own external dependency. They are independent — you only need the tool
-for the action you actually use (`--proxy` needs neither):
+Each of psql and pgAdmin is its own external dependency, independent of the others — you
+only need the tool for the command you actually use (`db connect proxy` and `db query`
+need neither):
 
-- **psql action (`--psql` / *databases*)** — `psql` must be on your `PATH`. If it isn't,
-  the psql action fails with `psql not found — install PostgreSQL client tools`; the GUI and
-  proxy actions are unaffected.
+- **`db connect psql` / `db browse`'s `d`** — `psql` must be on your `PATH`. If it isn't,
+  it fails with `psql not found — install PostgreSQL client tools`; pgAdmin, the proxy, and
+  `db query` are unaffected (`db query` runs the SQL in-process, no `psql` involved).
   - macOS: `brew install libpq` (then `brew link --force libpq`), or `brew install postgresql@16`.
   - Debian/Ubuntu: `sudo apt install postgresql-client`
   - Fedora/RHEL: `sudo dnf install postgresql`
 
-- **pgAdmin action (`--gui`)** — needs a working pgAdmin **desktop** install, and specifically:
+- **`db connect pgadmin` / `db browse`'s `g`** — needs a working pgAdmin **desktop**
+  install, and specifically:
   1. The `pgadmin4` launcher on your `PATH` — otherwise `pgadmin4 not found on PATH`.
   2. The pgAdmin **server** files (`web/setup.py` and the bundled `venv`), i.e. the
      `pgadmin4-server` package — otherwise `pgAdmin server files not found … is pgadmin4-server installed?`.
@@ -348,7 +386,7 @@ for the action you actually use (`--proxy` needs neither):
 
   Install from the [pgAdmin download page](https://www.pgadmin.org/download/). On Debian/Ubuntu
   the `pgadmin4-desktop` package pulls in `pgadmin4-server`; after installing, run pgAdmin once
-  and close it before using `--gui`. Also quit pgAdmin before connecting — the import step needs
+  and close it before connecting. Also quit pgAdmin before connecting — the import step needs
   exclusive access to its config database.
 
 ### AI-Powered Developer Tools
@@ -383,6 +421,8 @@ The `claude` command manages Claude Code configuration: bifrost MCP setup and pe
 - **bifrost** — route through the Airnity bifrost proxy, billed per token via the Google Cloud API
 
 Then the usual `model` (recommended: `opusplan`) and `effortLevel` (recommended: `medium`), plus optional toggles (bundled skills, dynamic workflows, artifacts, and a few tool permissions) to reduce Claude Code's context usage.
+
+`configure` also installs a SessionStart hook into your global `settings.json` that injects a short instruction block into every Claude Code session, teaching it to prefer the airnity CLI (`airnity db`, `airnity argo`) over raw cloud tooling. If the `airnity` binary is ever missing, the hook silently does nothing. Your own hooks are never touched.
 
 Regardless of which provider you pick as your default, `configure` always (re)writes `~/.claude/bifrost-settings.json`, a small overlay containing only the bifrost-specific settings. This means bifrost is always one command away, even on a Claude-Team-default machine: `configure`'s summary prints a one-time alias to add to your shell config —
 
@@ -529,7 +569,7 @@ For the cleanup part you just have to delete the folder mentioned above (e.g., `
 ## Shell Completion
 
 `airnity` supports tab-completion for commands, flags, and dynamic values such as
-`db connect --engine <TAB>` (the engine list is served from the local cache — no network).
+`db connect proxy --engine <TAB>` (the engine list is served from the local cache — no network).
 
 Completion is opt-in: you load a small script once that tells your shell to ask `airnity`
 for suggestions. The script does **not** contain the suggestions themselves — they are
