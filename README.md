@@ -328,6 +328,10 @@ focused, its databases.
    database opens a popup to pick psql, pgAdmin, or a bare proxy (arrow keys move, `enter`
    confirms); press `d`, `g`, or `p` instead to skip the popup and commit straight away.
    These call the exact same functions as `db connect proxy/psql/pgadmin`.
+
+   If a database shows a write-access status next to its name, `w` requests or revokes it
+   right there — see [Temporary Write Access](#temporary-write-access).
+
 3. **Proxy screen** (after `p`) — `↑↓` moves over the connection details and `enter` copies
    the highlighted one to the clipboard.
 4. **Coming back.** Leaving psql (`ctrl+D` or `\q`), quitting pgAdmin, or pressing `esc` on
@@ -389,6 +393,78 @@ need neither):
   and close it before connecting. Also quit pgAdmin before connecting — the import step needs
   exclusive access to its config database.
 
+### Temporary Write Access
+
+`airnity db connect`/`db browse` get you a **read** session on a database. `airnity db access`
+is how you get **write** rights on one, for a bounded time, with a justification that is
+recorded.
+
+The two are siblings on purpose, and they answer different questions from different
+authorities:
+
+| | `db connect` / `db browse` | `db access` |
+| --- | --- | --- |
+| Question | "Which engines can I open a session on, and open it" | "May I write to this database for the next few hours" |
+| Authority | GCP directly (Cloud Asset Inventory, IAM, the Admin APIs) | the `selfservice-database-rw` service |
+| Credential | your **gcloud** account | your **Keycloak** token (`airnity login`) |
+| Lists | database *engines*, then the databases inside one | the databases you may *read*, wherever they live |
+
+A typical sequence uses both: ask for write access with `db access`, then open the session
+with `db connect`/`db browse`. When you're already in `db browse`'s browser, press `w` on a
+database to request or revoke write access without leaving it — the subcommands below are
+for scripting.
+
+`w` opens a request form (duration presets up to the server's 8h maximum, plus a
+justification field) when the highlighted database has no access on it yet. If it already
+has a grant or a pending request, `w` instead opens a confirmation to revoke it or withdraw
+the request. A request that is granted outright offers to connect right away.
+
+```shell
+airnity db access list                      # databases you can read
+airnity db access list --env prod --name orders
+airnity db access grants                    # write access you currently hold
+```
+
+Requesting, holding and handing back access:
+
+```shell
+# Ask for write access. Both flags matter: the justification is audited.
+airnity db access request my-cluster/orders --ttl 2h --justification "hotfix INC-4711"
+
+# Give it back early
+airnity db access grants                    # find the id
+airnity db access revoke <grant-id>
+
+# Withdraw a request that is still waiting
+airnity db access cancel <request-id>
+```
+
+Some databases require an approver. Those requests queue instead of being granted, and
+`w` in `db browse` shows "awaiting approval" until one acts on it — approving or rejecting a
+request is done from the selfservice-database-rw web UI, not the CLI.
+
+#### What the CLI does not decide
+
+The service is the authority, and this command reports its answers rather than
+second-guessing them:
+
+- **How long** a grant may last is server policy. `--ttl` is sent as you typed it; if it is
+  out of bounds the server refuses and the CLI prints its explanation. There is no
+  client-side clamp and no hardcoded list of allowed durations.
+- **Which databases you see** is a server authorisation decision. `--env` / `--region` /
+  `--name` only narrow what is printed.
+- **Four-eyes**: you cannot approve your own request. The server enforces that from your
+  token.
+- A database you can **already** write to permanently is shown as such, and no grant is
+  offered on it.
+
+#### Requirements
+
+- Authenticated with Keycloak (`airnity login` or `airnity auth login`). Each subcommand
+  runs the login flow automatically when interactive, and errors out when not.
+- Network access to the service. Override the endpoint with `AIRNITY_DATABASE_RW_URL`
+  (there is no dev/prod switch — the variable *is* the mechanism).
+
 ### AI-Powered Developer Tools
 
 ```shell
@@ -420,7 +496,7 @@ The `claude` command manages Claude Code configuration: bifrost MCP setup and pe
 - **Claude Team subscription** — route through your Claude Team subscription, no per-token billing (requires a Team seat)
 - **bifrost** — route through the Airnity bifrost proxy, billed per token via the Google Cloud API
 
-Then the usual `model` (recommended: `opusplan`) and `effortLevel` (recommended: `medium`), plus optional toggles (bundled skills, dynamic workflows, artifacts, and a few tool permissions) to reduce Claude Code's context usage.
+Then the usual `model` (recommended: `opusplan`) and `effortLevel` (recommended: `high`), plus optional toggles (bundled skills, dynamic workflows, artifacts, and a few tool permissions) to reduce Claude Code's context usage.
 
 `configure` also installs a SessionStart hook into your global `settings.json` that injects a short instruction block into every Claude Code session, teaching it to prefer the airnity CLI (`airnity db`, `airnity argo`) over raw cloud tooling. If the `airnity` binary is ever missing, the hook silently does nothing. Your own hooks are never touched.
 
