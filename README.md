@@ -206,44 +206,45 @@ airnity docker login
 
 ### Database Management
 
-Connect to Cloud SQL and AlloyDB engines over a local, IAM-authenticated proxy — no
+Connect to Cloud SQL and AlloyDB instances over a local, IAM-authenticated proxy — no
 passwords, no IP allow-listing. Find a target with `db list`, then either `db query` for
 headless SQL, `db connect proxy/psql/pgadmin` for a direct connection, or `db browse` for
 an interactive picker. The command name alone decides whether you get a picker — no flag
 ever changes which of these you get.
 
 ```shell
-# Interactive: browse engines and their databases, then choose an action
+# Interactive: browse instances and their databases, then choose an action
 airnity db browse
 ```
 
 #### Discovery
 
 ```shell
-# Every engine, reachable or not, with the reason when it isn't
-airnity db list engines
-airnity db list engines core-network-prod
+# Every instance you can connect to
+airnity db list instances
+airnity db list instances backend
 
-# Databases across every engine you can reach
+# Databases across every instance you can reach, with your write-access status on each
 airnity db list databases
 airnity db list databases boss
-airnity db list databases --engine backend-prod
+airnity db list databases --instance backend-prod
 ```
 
-- **`db list engines [pattern]`** — every Cloud SQL / AlloyDB engine you can connect to.
-  Engines you have no database account or no IAM permission on are not listed at all: they
-  are not targets you can act on. `pattern` is a case-insensitive substring of the engine
-  name.
-- **`db list databases [pattern] [--engine <substring>]`** — the databases inside every
-  engine you can connect to. `pattern` is a case-insensitive substring of the database
-  name; `--engine` narrows to engines whose name contains it, and errors if it names no
-  engine you can reach. No row limit on either command — narrow with the pattern.
+- **`db list instances [pattern]`** — every Cloud SQL / AlloyDB instance you can connect
+  to, one row per instance: project, engine, instance, region. `pattern` is a
+  case-insensitive substring of the instance name.
+- **`db list databases [pattern] [--instance <substring>]`** — the databases inside every
+  Cloud SQL / AlloyDB instance you can connect to, one row per database: project, engine,
+  instance, database, region, and a `Write` column (`writable`, `granted (expires in
+  <duration>)`, `pending`, or empty). `pattern` is a case-insensitive substring of the
+  database name; `--instance` narrows to instances whose name contains it, and errors if it
+  names no instance you can reach. No row limit — narrow with the pattern.
 
-If you name an engine you cannot reach explicitly (`--engine`, `db query`, `db connect …`),
-the command still tells you exactly why and who to ask — a missing database account is
-fixed by the engine's administrator, a missing IAM permission in GCP, and a failed check is
-explained in the `AIRNITY_DB_DEBUG=1` log. That is the only place a denial is ever
-surfaced; discovery never mentions engines you have no access to.
+If you name an instance you cannot reach explicitly (`--instance`, `db query`, `db connect
+…`), the error explains why: selfservice-database-rw has not resolved a connection target
+for it yet. Nothing here re-implements access control — selfservice-database-rw is the
+sole authority on which databases you may read; this CLI only asks it and reports what it
+says.
 
 A pattern matching nothing suggests up to 5 nearest names by edit distance instead of
 returning an empty list:
@@ -257,64 +258,65 @@ no database matching "bifrsot" — nearest: bifrost, ...
 
 ```shell
 # Headless SQL — no psql, no local port, scriptable
-airnity db query --engine core-prod-primary --db boss "select count(*) from users"
+airnity db query --instance core-prod-primary --db boss "select count(*) from users"
 
-# A local proxy in front of the whole engine, held open until Ctrl+C
-airnity db connect proxy --engine core-prod-primary
-airnity db connect proxy --engine core-prod-primary --db boss
-airnity db connect proxy --engine core-prod-primary --port 5433
+# A local proxy in front of the whole instance, held open until Ctrl+C
+airnity db connect proxy --instance core-prod-primary
+airnity db connect proxy --instance core-prod-primary --db boss
+airnity db connect proxy --instance core-prod-primary --port 5433
 
 # An interactive psql session (needs a terminal)
-airnity db connect psql --engine core-prod-primary --db boss
+airnity db connect psql --instance core-prod-primary --db boss
 
 # pgAdmin, imported and launched automatically
-airnity db connect pgadmin --engine core-prod-primary
+airnity db connect pgadmin --instance core-prod-primary
 ```
 
-- **`db query --engine <name> --db <name> "<sql>"`** — runs the SQL in-process (no `psql`
+- **`db query --instance <name> --db <name> "<sql>"`** — runs the SQL in-process (no `psql`
   install, no local port, no terminal) and prints the result. Both flags are required. The
   SQL is a required positional argument; pass `-` to read it from stdin instead. There is
   no read-only restriction — anything `psql` could run, this can too.
-- **`db connect proxy --engine <name> [--db <name>] [--port <n>]`** — starts the proxy and
+- **`db connect proxy --instance <name> [--db <name>] [--port <n>]`** — starts the proxy and
   prints a ready-to-paste connection string, then blocks until interrupted (`Ctrl+C` or a
-  signal). It fronts the whole engine — the printed database can be swapped for any other
+  signal). It fronts the whole instance — the printed database can be swapped for any other
   one on it via the connection string's `dbname=...`. `--db` only sets which one the printed
   strings default to (defaulting to `postgres` itself when omitted); `--port` picks a fixed
   local port instead of a random one. A proxy that failed to connect exits with the
   underlying cause instead of `0`.
-- **`db connect psql --engine <name> --db <name>`** — opens an interactive `psql` session.
+- **`db connect psql --instance <name> --db <name>`** — opens an interactive `psql` session.
   Needs a terminal and never falls back to a picker; for scripted SQL use `db query`
   instead.
-- **`db connect pgadmin --engine <name>`** — imports the engine as a server into pgAdmin
+- **`db connect pgadmin --instance <name>`** — imports the instance as a server into pgAdmin
   and launches it, holding the proxy open until you close pgAdmin (or press `Ctrl+C`).
-  pgAdmin browses every database itself, which is why this acts on the whole engine rather
+  pgAdmin browses every database itself, which is why this acts on the whole instance rather
   than one database. Works with the Linux/WSL package (`pgadmin4` on `PATH`) and with the
   macOS application bundle, including `brew install --cask pgadmin4`, which puts no
   `pgadmin4` on `PATH`. Launch pgAdmin once before first use so its config database exists.
 
-`--engine` takes the name as `db list engines` shows it (for AlloyDB, the instance alone)
-or the full `cluster/instance` form; it errors if the name is unknown, matches more than
-one engine, or you lack access to it, and supports shell completion (served from the local
-cache — no network).
+`--instance` takes the name as `db list databases` shows it (for AlloyDB, the instance
+alone) or the full `cluster/instance` form; it errors if the name is unknown, matches more
+than one instance, or you lack access to it, and supports shell completion (a live,
+bounded query to selfservice-database-rw — TAB simply offers nothing if it's slow or
+unauthenticated).
 
-Every command above accepts `--refresh` (bypass the cache and re-scan GCP). The commands
-that print data — `db list engines`, `db list databases`, `db query`, `db connect proxy` —
-also accept `-o json`, which always prints exactly one JSON object on stdout, on both
-success and failure, with the exit code carrying the verdict; their text output is a table
-with a header, or a header-only TSV when piped. `db browse`, `db connect psql` and
-`db connect pgadmin` hand the terminal to a UI instead of printing data, so they reject
-`-o json` naming the command that does what you wanted rather than accepting it and
-printing prose anyway. A command missing its target (e.g. `db query` without `--engine`/`--db`, or
-`db connect psql` with no terminal attached) fails with a message naming the exact command
-to run instead — it never falls back to `db browse`.
+The commands that print data — `db list databases`, `db query`,
+`db connect proxy` — also accept `-o json`, which always
+prints exactly one JSON object on stdout, on both success and failure, with the exit code
+carrying the verdict; their text output is a table with a header, or a header-only TSV
+when piped. `db browse`, `db connect psql` and `db connect pgadmin` hand the terminal to a
+UI instead of printing data, so they reject `-o json` naming the command that does what
+you wanted rather than accepting it and printing prose anyway. A command missing its
+target (e.g. `db query` without `--instance`/`--db`, or `db connect psql` with no terminal
+attached) fails with a message naming the exact command to run instead — it never falls
+back to `db browse`.
 
 #### `db browse`
 
-The only picker: a two-pane TUI listing every engine you can reach and, once one is
+The only picker: a two-pane TUI listing every instance you can reach and, once one is
 focused, its databases.
 
 ```text
-╭─ engines ───────────────────╮ ╭─ databases in backend-prod  (6 databases) ─╮
+╭─ instances ─────────────────╮ ╭─ databases in backend-prod  (6 databases) ─╮
 │ ▸ alloydb   backend-prod    │ │   postgres                                 │
 │   cloudsql  platform-prod   │ │ ▸ boss                                     │
 │   alloydb   core-network-d… │ │   facteur                                  │
@@ -322,11 +324,13 @@ focused, its databases.
 ╰─────────────────────────────╯ ╰────────────────────────────────────────────╯
 ```
 
-1. **Engine pane** — every engine you can connect to, and only those: every row is one the
-   actions below work on. `→` or `enter` moves to the databases; `ctrl+r` re-scans GCP.
-2. **Database pane** — `/` filters, `r` re-lists that one engine. `enter` on the highlighted
-   database opens a popup to pick psql, pgAdmin, or a bare proxy (arrow keys move, `enter`
-   confirms); press `d`, `g`, or `p` instead to skip the popup and commit straight away.
+1. **Instance pane** — every instance you can connect to, and only those: every row is one
+   the actions below work on. `→` or `enter` moves to the databases; `ctrl+r` re-queries
+   selfservice-database-rw.
+2. **Database pane** — `/` filters, `r` refreshes the focused instance's write-access status.
+   `enter` on the highlighted database opens a popup to pick psql, pgAdmin, or a bare proxy
+   (arrow keys move, `enter` confirms); press `d`, `g`, or `p` instead to skip the popup and
+   commit straight away.
    These call the exact same functions as `db connect proxy/psql/pgadmin`.
 
    If a database shows a write-access status next to its name, `w` requests or revokes it
@@ -340,29 +344,30 @@ focused, its databases.
    session that ended because the connection failed exits with the cause rather than
    painting over it.
 
-`db browse` takes only `--refresh`; there is no `--engine`/`--db` to skip the picker — find
-those with `db list` and reach for `db query` or `db connect` instead.
+`db browse` takes no target flags; there is no `--instance`/`--db` to skip the picker —
+find those with `db list` and reach for `db query` or `db connect` instead.
 
 #### Troubleshooting connection failures
 
 Set `AIRNITY_DB_DEBUG=1` to append connection diagnostics to `~/.airnity/db-debug.log`:
-one line per engine access check (duration and the raw error) plus one line per failed
-proxy connection once you've picked a database. `db browse`'s error screen then prints the
-log path.
+one line per `db list databases` call (duration and row count) plus
+one line per failed connection dial (the connector's own error, verbatim). `db browse`'s
+error screen then prints the log path.
 
 ```shell
-AIRNITY_DB_DEBUG=1 airnity db browse --refresh
+AIRNITY_DB_DEBUG=1 airnity db browse
 ```
 
 It writes to a file rather than the terminal because the browser is a full-screen TUI.
 This is the fastest way to report a problem: the log holds the raw cause behind a failed
-access check or a failed proxy connection, neither of which the browser itself shows.
+`db list databases` call or a failed proxy connection, neither of which
+the browser itself shows.
 
 #### Requirements
 
 - Authenticated with gcloud (`airnity gcloud login`) — the proxy authenticates as your
   active gcloud account via IAM, so the matching database role must already exist on the
-  engine. If your gcloud login or application-default credentials are missing or expired,
+  instance. If your gcloud login or application-default credentials are missing or expired,
   every `db` command re-authenticates in place before connecting.
 - An interactive terminal for `db browse` and `db connect psql` (an interactive `psql`
   session needs one to attach to). `db query`, `db connect proxy`, and `db connect pgadmin`
@@ -404,15 +409,16 @@ authorities:
 
 | | `db connect` / `db browse` | `db access` |
 | --- | --- | --- |
-| Question | "Which engines can I open a session on, and open it" | "May I write to this database for the next few hours" |
-| Authority | GCP directly (Cloud Asset Inventory, IAM, the Admin APIs) | the `selfservice-database-rw` service |
+| Question | "Which instances can I open a session on, and open it" | "May I write to this database for the next few hours" |
+| Authority | the `selfservice-database-rw` service for discovery; gcloud IAM for the connection itself | the `selfservice-database-rw` service |
 | Credential | your **gcloud** account | your **Keycloak** token (`airnity login`) |
-| Lists | database *engines*, then the databases inside one | the databases you may *read*, wherever they live |
+| Lists | every database you can *connect* to, instance and all | write grants and pending requests you currently hold |
 
-A typical sequence uses both: ask for write access with `db access`, then open the session
-with `db connect`/`db browse`. When you're already in `db browse`'s browser, press `w` on a
-database to request or revoke write access without leaving it — the subcommands below are
-for scripting.
+A typical sequence uses both: find the database and its `ref` with `db list databases -o
+json`, ask for write access with `db access`, then open the session with `db
+connect`/`db browse`. When you're already in `db browse`'s browser, press `w` on a database
+to request or revoke write access without leaving it — the subcommands below are for
+scripting.
 
 `w` opens a request form (duration presets up to the server's 8h maximum, plus a
 justification field) when the highlighted database has no access on it yet. If it already
@@ -420,15 +426,15 @@ has a grant or a pending request, `w` instead opens a confirmation to revoke it 
 the request. A request that is granted outright offers to connect right away.
 
 ```shell
-airnity db access list                      # databases you can read
-airnity db access list --env prod --name orders
+airnity db list databases -o json | jq -r '.databases[] | "\(.ref)\t\(.write)"'
 airnity db access grants                    # write access you currently hold
 ```
 
 Requesting, holding and handing back access:
 
 ```shell
-# Ask for write access. Both flags matter: the justification is audited.
+# Ask for write access. Both flags matter: the justification is audited. The ref comes
+# from 'db list databases -o json' (its "ref" field).
 airnity db access request my-cluster/orders --ttl 2h --justification "hotfix INC-4711"
 
 # Give it back early
@@ -645,7 +651,7 @@ For the cleanup part you just have to delete the folder mentioned above (e.g., `
 ## Shell Completion
 
 `airnity` supports tab-completion for commands, flags, and dynamic values such as
-`db connect proxy --engine <TAB>` (the engine list is served from the local cache — no network).
+`db connect proxy --instance <TAB>` (a live, bounded query to selfservice-database-rw).
 
 Completion is opt-in: you load a small script once that tells your shell to ask `airnity`
 for suggestions. The script does **not** contain the suggestions themselves — they are
