@@ -368,7 +368,9 @@ the browser itself shows.
 - Authenticated with gcloud (`airnity gcloud login`) — the proxy authenticates as your
   active gcloud account via IAM, so the matching database role must already exist on the
   instance. If your gcloud login or application-default credentials are missing or expired,
-  every `db` command re-authenticates in place before connecting.
+  every command that opens a session (`db connect`, `db query`, `db browse`) re-authenticates
+  in place before connecting. `db list instances` and `db list databases` need no gcloud
+  credentials at all — discovery answers from your Keycloak token alone.
 - An interactive terminal for `db browse` and `db connect psql` (an interactive `psql`
   session needs one to attach to). `db query`, `db connect proxy`, and `db connect pgadmin`
   fully name the target and run without one. `--plain` / `--no-color` render `db browse`
