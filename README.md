@@ -451,6 +451,11 @@ Some databases require an approver. Those requests queue instead of being grante
 `w` in `db browse` shows "awaiting approval" until one acts on it — approving or rejecting a
 request is done from the selfservice-database-rw web UI, not the CLI.
 
+`db access request` (and the `w` shortcut) refuse to run when the calling process identifies
+itself as an AI coding agent (e.g. `CLAUDECODE` is set) — a human must run this one. If you
+hit that refusal from a real terminal, check whether your shell inherited agent environment
+variables from a wrapping tool.
+
 #### What the CLI does not decide
 
 The service is the authority, and this command reports its answers rather than
