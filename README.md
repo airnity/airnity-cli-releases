@@ -645,10 +645,8 @@ Once the key generation process is complete, the following files will be availab
 
 ### Next Steps: Storing Keys/Passphrase & import into your keyring
 
-To save, import the keys into your keyring and verify that it is working, you can follow the documentation here :
-https://airnity.fibery.io/Knowledge_Management/How_to/Generate-and-manage-your-GPG-keys-153/anchor=Backup--c7b633bb-103c-4934-94ca-e4456b267071
-
-For the cleanup part you just have to delete the folder mentioned above (e.g., `/tmp/gnupg_202410141642_Fo2GaO`)
+To back up the files, clean up, import the keys into your keyring and verify that everything works, follow the documentation from the **Back up your keys** section onward:
+https://airnity.fibery.io/Knowledge_Management/How_to/Generate-and-manage-your-GPG-keys-153/anchor=Back-up-your-keys--ca470498-b51e-414e-a5f8-1d7f74325129
 
 ## Shell Completion
 
