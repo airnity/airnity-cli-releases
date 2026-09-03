@@ -228,6 +228,9 @@ airnity db list instances backend
 airnity db list databases
 airnity db list databases boss
 airnity db list databases --instance backend-prod
+
+# Proxies you (or another `airnity db connect`/`db browse` process) currently have open
+airnity db list proxies
 ```
 
 - **`db list instances [pattern]`** — every Cloud SQL / AlloyDB instance you can connect
@@ -239,6 +242,11 @@ airnity db list databases --instance backend-prod
   <duration>)`, `pending`, or empty). `pattern` is a case-insensitive substring of the
   database name; `--instance` narrows to instances whose name contains it, and errors if it
   names no instance you can reach. No row limit — narrow with the pattern.
+- **`db list proxies`** — every local auth proxy currently open on this machine, one row
+  per proxy: instance, port, user, database, engine, project, PID, and when it was opened.
+  A proxy lives only as long as the CLI process that opened it (`db connect
+  proxy/psql/pgadmin` or `db browse`), so this only ever reflects processes still running
+  right now.
 
 If you name an instance you cannot reach explicitly (`--instance`, `db query`, `db connect
 …`), the error explains why: selfservice-database-rw has not resolved a connection target
@@ -346,6 +354,22 @@ focused, its databases.
 
 `db browse` takes no target flags; there is no `--instance`/`--db` to skip the picker —
 find those with `db list` and reach for `db query` or `db connect` instead.
+
+##### `db browse --instances`
+
+A second, narrower picker dedicated to pgAdmin: a flat, multi-select list of instances,
+no database drill-down.
+
+```shell
+airnity db browse --instances
+```
+
+`space` checks off as many instances as you want, `enter` opens one local proxy per
+checked instance and imports all of them into pgAdmin in a single launch — one pgAdmin
+window, N servers under the `Airnity` group. Closing pgAdmin tears every proxy down
+together; `q`/`ctrl+c` before that stops whichever proxies are already open and quits. If
+opening any one of the selected instances fails, nothing is imported and every proxy
+already opened is closed — it never launches pgAdmin with a partial set.
 
 #### Troubleshooting connection failures
 
