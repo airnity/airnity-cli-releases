@@ -282,8 +282,11 @@ airnity db connect pgadmin --instance core-prod-primary
 
 - **`db query --instance <name> --db <name> "<sql>"`** — runs the SQL in-process (no `psql`
   install, no local port, no terminal) and prints the result. Both flags are required. The
-  SQL is a required positional argument; pass `-` to read it from stdin instead. There is
-  no read-only restriction — anything `psql` could run, this can too.
+  SQL is a required positional argument; pass `-` to read it from stdin instead. For a human
+  caller there is no read-only restriction — anything `psql` could run, this can too. For an
+  AI coding agent the session is forced read-only by Postgres itself
+  (`default_transaction_read_only`), regardless of the write grants the identity actually
+  holds; this is the one database command an agent is expected to use.
 - **`db connect proxy --instance <name> [--db <name>] [--port <n>]`** — starts the proxy and
   prints a ready-to-paste connection string, then blocks until interrupted (`Ctrl+C` or a
   signal). It fronts the whole instance — the printed database can be swapped for any other
@@ -300,6 +303,13 @@ airnity db connect pgadmin --instance core-prod-primary
   than one database. Works with the Linux/WSL package (`pgadmin4` on `PATH`) and with the
   macOS application bundle, including `brew install --cask pgadmin4`, which puts no
   `pgadmin4` on `PATH`. Launch pgAdmin once before first use so its config database exists.
+
+All three `db connect` subcommands (and the `d`/`g`/`p` shortcuts in `db browse`) refuse to
+run when the calling process identifies itself as an AI coding agent, for the same reason
+`db access request` does. A proxy is a raw byte relay with no notion of the Postgres wire
+protocol, so unlike `db query` it cannot force the session read-only — an agent connecting
+through it would get exactly the unrestricted session a human gets. `db query` is the
+read-only path an agent should use instead.
 
 `--instance` takes the name as `db list databases` shows it (for AlloyDB, the instance
 alone) or the full `cluster/instance` form; it errors if the name is unknown, matches more
