@@ -90,6 +90,8 @@ Display version information including git commit and build details.
 ### Authentication
 
 The CLI manages two independent auth systems: **Keycloak** (internal SSO) and **GCloud**.
+The GCloud side also configures npm for the private `@airnity` registry (see
+[npm Registry](#npm-registry)), since that registry authenticates with the GCloud token.
 
 #### Unified Login/Logout
 
@@ -203,6 +205,73 @@ airnity k8s get kubeconfigs --private-endpoints
 # Login to GCP Docker registries
 airnity docker login
 ```
+
+### npm Registry
+
+`@airnity` packages are published to a private GCP Artifact Registry that only
+`airnity.com` identities can read. `airnity login` configures npm for it automatically;
+these commands manage it on their own.
+
+```shell
+# Point npm at the Airnity registry and write a fresh token
+airnity npm login
+
+# Remove the Airnity registry and its token from ~/.npmrc
+airnity npm logout
+```
+
+`npm login` writes two keys to your npm user config (`~/.npmrc`, or
+`$npm_config_userconfig` when set) and leaves every other line in it alone:
+
+```
+@airnity:registry=https://europe-npm.pkg.dev/airnity/npm/
+//europe-npm.pkg.dev/airnity/npm/:_authToken="<gcloud access token>"
+```
+
+The token is a short-lived GCloud access token, so it needs refreshing — rerun
+`airnity login` (or `airnity npm login`) when npm starts reporting **404 Not Found** for an
+`@airnity` package. That 404, rather than a 401, is what an expired or missing token looks
+like: the registry hides packages from unauthenticated callers.
+
+Requires a valid GCloud login, so run `airnity gcloud login` first if npm login reports a
+missing token.
+
+### bb Plugin Marketplace
+
+```shell
+# Install bb globally with npm if missing, offer a background service,
+# then register the marketplace and install the mkt plugin
+airnity bb install        # -y installs the service without asking
+
+# Day to day
+airnity bb status     # install method, PATH, server, service, marketplace
+airnity bb start      # start the server in the background, if not already up
+airnity bb stop       # stop it
+airnity bb open       # open bb in your browser
+airnity bb upgrade    # upgrade to the latest bb
+```
+
+`install` is safe to run again: every step checks before it acts, and an `mkt`
+you already have — a worktree or path install included — is left alone. It
+needs a valid GCloud login, since the marketplace's private packages
+authenticate with the GCloud token. bb has no native Windows build, so on
+Windows run it from WSL.
+
+bb is installed globally with npm (`npm i -g bb-app`), which puts the `bb`
+command on your PATH and gives the background service a stable binary to point
+at. A server already running from another copy — an `npx bb-app`, a clone run
+from source — is stopped and the global one started in its place, so there is
+one bb serving and it is the one that gets upgraded.
+
+**The background service** keeps the bb server running after you close your
+terminal, so background jobs survive. It uses launchd on macOS and a systemd
+user unit on Linux and WSL. It restarts the server after a crash but never
+after a deliberate stop, so `airnity bb stop` behaves as it reads — the service
+starts it again at your next login.
+
+Once `mkt` is installed it refreshes the registry token before every install it
+drives; `airnity npm login` covers the installs it does not (bb's own install
+button, or `npm install` in a plugin you cloned yourself).
 
 ### Database Management
 
