@@ -96,7 +96,7 @@ The GCloud side also configures npm for the private `@airnity` registry (see
 #### Unified Login/Logout
 
 ```shell
-# Authenticate with both Keycloak and GCloud
+# Authenticate with Keycloak, GCloud and Grafana Cloud
 airnity login
 
 # Authenticate with Keycloak only
@@ -104,6 +104,9 @@ airnity login -k
 
 # Authenticate with GCloud only
 airnity login -g
+
+# Refresh the Grafana Cloud (gcx) login only
+airnity login -r
 
 # Logout from both Keycloak and GCloud
 airnity logout
@@ -235,6 +238,50 @@ like: the registry hides packages from unauthenticated callers.
 
 Requires a valid GCloud login, so run `airnity gcloud login` first if npm login reports a
 missing token.
+
+### Grafana Cloud CLI (gcx)
+
+Set up [`gcx`](https://github.com/grafana/gcx) against Airnity's Grafana Cloud.
+
+`airnity login` refreshes an existing gcx login as one of its steps, but it
+never sets one up: if gcx is missing, or has no `airnity` context yet, it says
+so and moves on rather than opening a browser you did not ask for. Installing
+and first-time login stay explicit:
+
+```shell
+airnity gcx install   # install the binary (Homebrew)
+airnity gcx login     # browser OAuth via Keycloak
+airnity gcx status    # context, auth method, connectivity
+```
+
+`login` opens your browser, you approve in Keycloak, and gcx stores the
+credentials in your OS keychain — no service account token to create and
+nothing to paste. The login lasts 30 days and refreshes itself in the meantime.
+
+It manages a single gcx context named `airnity`, so re-running `login`
+re-authenticates in place rather than piling up contexts. Note that gcx makes
+that context current, as it does for any context it logs into.
+
+This gives you the Grafana API and **IRM** — on-call schedules and incidents:
+
+```shell
+gcx irm oncall schedules list
+gcx irm incidents list
+gcx alert rules list
+```
+
+gcx prints a note after login saying IRM needs a Cloud Access Policy token.
+That is not true for IRM. A CAP token is needed only for SLO, Synthetic
+Monitoring, Fleet, k6 and Adaptive telemetry; add one yourself with
+`gcx login --context airnity --cloud-token <token>` if you need those.
+
+Running under an AI coding agent, gcx will not open a browser — it prints the
+URL for a human to approve instead. `airnity gcx login` says so up front so it
+does not look like a hang.
+
+> Installing gcx by hand? Use the fully qualified formula:
+> `brew install grafana/grafana/gcx`. An unqualified `brew install gcx` can
+> resolve to a different formula of the same name in homebrew/core.
 
 ### bb Plugin Marketplace
 
