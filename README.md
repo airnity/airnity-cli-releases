@@ -248,7 +248,7 @@ airnity bb status     # install method, PATH, server, service, marketplace
 airnity bb start      # start the server in the background, if not already up
 airnity bb stop       # stop it
 airnity bb open       # open bb in your browser
-airnity bb upgrade    # upgrade to the latest bb
+airnity bb upgrade    # upgrade to the latest bb and restart a running server on it
 ```
 
 `install` is safe to run again: every step checks before it acts, and an `mkt`
