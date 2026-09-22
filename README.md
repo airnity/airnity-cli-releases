@@ -270,6 +270,58 @@ gcx irm incidents list
 gcx alert rules list
 ```
 
+#### Machine-readable status
+
+`airnity gcx status -o json` prints one object for tooling to read, so a caller
+never has to parse the human output (whose glyphs carry the meaning and whose
+wording may change):
+
+```shell
+airnity gcx status -o json
+{"component":"gcx","state":"ready","ok":true,"context":"airnity","authMethod":"oauth","contextType":"Grafana Cloud","server":"https://airnity.grafana.net","version":"13.3.0"}
+```
+
+`state` is the contract — a closed set, each value implying a different remedy:
+
+| `state` | Meaning | `remedy` |
+| --- | --- | --- |
+| `not-installed` | the gcx binary is not on PATH | `airnity gcx install` |
+| `not-configured` | installed, but no `airnity` context yet | `airnity gcx login` |
+| `unauthenticated` | the server answered and refused the credentials | `airnity gcx login` |
+| `unreachable` | the server was never reached — a network or VPN problem | *(none)* |
+| `ready` | configured, authenticated and reachable | *(none)* |
+
+`unauthenticated` and `unreachable` are deliberately separate: suggesting a
+re-login when someone's VPN is down wastes their time, so `unreachable` carries
+no remedy. An unrecognized connectivity failure degrades to `unreachable`
+rather than guessing.
+
+`ok` is the same verdict as a boolean, and **the exit code carries it too** — 0
+only for `ready`, 1 otherwise — so a caller wanting a cheap yes/no can skip
+parsing entirely. The exit code describes the world, not the output format, so
+it is the same with or without `-o json`:
+
+```shell
+if airnity gcx status >/dev/null 2>&1; then echo "usable"; fi
+```
+
+The human output distinguishes the same five states, each with its own line —
+being logged out and being unable to reach the server no longer share the
+message "Configured but not reachable — check your network or VPN.", which sent
+people to debug a VPN when they only needed `airnity gcx login`. The format is
+unchanged: it is still prose, not JSON or field lines.
+
+`airnity auth status -o json` prints the same envelope with
+`"component":"keycloak"`, using the same `state` vocabulary (minus
+`not-installed`, which cannot apply), so one parser reads both:
+
+```shell
+airnity auth status -o json
+{"component":"keycloak","state":"ready","ok":true,"user":"you@airnity.com","credentials":"/home/you/.airnity/credentials.json"}
+```
+
+The default human output of both commands is unchanged.
+
 gcx prints a note after login saying IRM needs a Cloud Access Policy token.
 That is not true for IRM. A CAP token is needed only for SLO, Synthetic
 Monitoring, Fleet, k6 and Adaptive telemetry; add one yourself with
