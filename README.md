@@ -350,8 +350,9 @@ airnity bb open       # open bb in your browser
 airnity bb upgrade    # upgrade to the latest bb and restart a running server on it
 ```
 
-`install` is safe to run again: every step checks before it acts, and an `mkt`
-you already have — a worktree or path install included — is left alone. It
+`install` is safe to run again: every step checks before it acts. An `mkt`
+installed from the catalog is updated when a newer version is published; a
+worktree or path install is left alone. It
 needs a valid GCloud login, since the marketplace's private packages
 authenticate with the GCloud token. bb has no native Windows build, so on
 Windows run it from WSL.
