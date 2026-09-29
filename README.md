@@ -79,6 +79,23 @@ You can customize the newly created `${HOME}/.airnity.yaml` as needed.
 
 The Airnity CLI provides various commands organized by functionality:
 
+### Global Flags
+
+These work on every command:
+
+- `--plain` — no spinners, colors or interactive prompts, and no automatic login: a
+  command that needs a login you don't have fails and names the command to run.
+  `upgrade` and `claude configure` switch to their plain form; bare `airnity`,
+  `ai commit` (unless `-o json`) and `claude mcp manage` refuse to start; `db browse` and
+  `gpg generate`, which are nothing but a full-screen UI, still run, without color.
+  Setting `CI` (to any value) has the same effect on prompts and logins.
+- `--no-color` — strip colors only; prompts, TUIs and automatic login still work. Same as
+  setting `NO_COLOR`. `--no-color` also exports `NO_COLOR=1` to the tools the CLI runs.
+- `--no-token-persist` — keep refreshed Keycloak tokens in memory only and never write
+  `~/.airnity/credentials.json` (for a read-only mounted credentials file).
+
+Any failure exits with code 1.
+
 ### Version Information
 
 ```shell
@@ -108,7 +125,7 @@ airnity login -g
 # Refresh the Grafana Cloud (gcx) login only
 airnity login -r
 
-# Logout from both Keycloak and GCloud
+# Logout from Keycloak and GCloud (also removes the Airnity registry from .npmrc)
 airnity logout
 
 # Logout from Keycloak only
@@ -572,7 +589,8 @@ the browser itself shows.
   active gcloud account via IAM, so the matching database role must already exist on the
   instance. If your gcloud login or application-default credentials are missing or expired,
   every command that opens a session (`db connect`, `db query`, `db browse`) re-authenticates
-  in place before connecting. `db list instances` and `db list databases` need no gcloud
+  in place before connecting — when stderr is a terminal and neither `--plain` nor `CI` is
+  set. Otherwise it fails and tells you to run `airnity gcloud login`. `db list instances` and `db list databases` need no gcloud
   credentials at all — discovery answers from your Keycloak token alone.
 - An interactive terminal for `db browse` and `db connect psql` (an interactive `psql`
   session needs one to attach to). `db query`, `db connect proxy`, and `db connect pgadmin`
@@ -667,8 +685,8 @@ second-guessing them:
 - **How long** a grant may last is server policy. `--ttl` is sent as you typed it; if it is
   out of bounds the server refuses and the CLI prints its explanation. There is no
   client-side clamp and no hardcoded list of allowed durations.
-- **Which databases you see** is a server authorisation decision. `--env` / `--region` /
-  `--name` only narrow what is printed.
+- **Which databases you see** is a server authorisation decision. `db list databases`'
+  name pattern and `--instance` only narrow what is printed.
 - **Four-eyes**: you cannot approve your own request. The server enforces that from your
   token.
 - A database you can **already** write to permanently is shown as such, and no grant is
@@ -677,7 +695,9 @@ second-guessing them:
 #### Requirements
 
 - Authenticated with Keycloak (`airnity login` or `airnity auth login`). Each subcommand
-  runs the login flow automatically when interactive, and errors out when not.
+  runs the login flow automatically when stderr is a terminal and neither `--plain` nor `CI`
+  is set (`--no-color`/`NO_COLOR` don't matter); otherwise it fails and tells you to run
+  `airnity auth login`.
 - Network access to the service. Override the endpoint with `AIRNITY_DATABASE_RW_URL`
   (there is no dev/prod switch — the variable *is* the mechanism).
 
@@ -707,7 +727,7 @@ airnity claude configure
 airnity claude mcp manage
 ```
 
-The `claude` command manages Claude Code configuration: bifrost MCP setup and per-project MCP server permissions (written to `.claude/settings.local.json`). In an interactive terminal, `claude configure` walks through a short questionnaire, starting with your **default provider**:
+The `claude` command manages Claude Code configuration: bifrost MCP setup and per-project MCP server permissions (written to `.claude/settings.local.json`). In an interactive terminal (without `--plain` or `CI`), `claude configure` walks through a short questionnaire, starting with your **default provider**:
 
 - **Claude Team subscription** — route through your Claude Team subscription, no per-token billing (requires a Team seat)
 - **bifrost** — route through the Airnity bifrost proxy, billed per token via the Google Cloud API
@@ -844,7 +864,7 @@ The `gpg generate` command automates the creation of a GPG keypair along with su
 - Generate a revocation certificate
 - Copy the generated passphrase to your clipboard for secure storage.
 
-Once the key generation process is complete, the following files will be available in the temporary directory displayed by the script (e.g., `/tmp/gnupg_202410141642_Fo2GaO`):
+Once the key generation process is complete, the following files will be available in the temporary directory displayed by the script (e.g., `/tmp/gnupg_202410141642_3794021856`):
 
 - **`master.key`**: This is your master secret key. **Do not** share this key with anyone.
 - **`sub.key`**: This contains your secret subkeys for signing, encryption, and authentication.
