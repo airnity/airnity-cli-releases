@@ -170,6 +170,42 @@ airnity gcloud login
 airnity gcloud logout
 ```
 
+#### Service Connections
+
+Connect Slack, Fibery or another Keycloak realm once; the CLI, bb plugins and
+scripts then all get their tokens from the connect broker.
+
+```shell
+# List the services you can connect and their state
+airnity connect list
+
+# Connect a service (opens the browser; API-token services prompt for the token)
+airnity connect login slack
+airnity connect login fibery --with-token < token.txt
+
+# Log in to every browser-based service not connected yet, one after the other
+airnity connect login --all
+
+# Print a valid access token (-o json adds tokenType and expiresAt). From a
+# terminal, a service not connected yet goes through the login first.
+airnity connect token slack
+
+# A token the realm issues to another of its clients, for APIs that only
+# accept their own audience
+airnity connect token keycloak-dev-main --audience boss-ui-dev
+
+# Decode that token's header and claims (debug; the token itself is not printed)
+airnity connect debug-token keycloak-dev-main --audience boss-ui-dev
+
+# Check one connection (-o json prints the same envelope as `auth status`)
+airnity connect status slack
+
+# Disconnect (the broker also revokes the tokens where the service allows it)
+airnity connect logout slack
+```
+
+`AIRNITY_CONNECT_URL` points the CLI at another broker, for local testing.
+
 #### Local HTTP Server
 
 ```shell
@@ -181,7 +217,16 @@ airnity serve --port 9001
 
 # From another terminal, once running:
 curl http://127.0.0.1:47823/auth/token
+
+# A connect broker token, the same as 'airnity connect token'
+curl http://127.0.0.1:47823/connect/tokens/keycloak-dev-main
+curl "http://127.0.0.1:47823/connect/tokens/keycloak-dev-main?audience=boss-ui-dev"
 ```
+
+Any local process can call the server, an AI agent included, so `/connect/tokens` only
+serves the connectors the broker lets agents read. The server also refuses a `Host` other
+than `127.0.0.1` or `localhost`, so a web page that rebinds its domain to the loopback
+cannot read a token.
 
 ### Configuration Management
 
