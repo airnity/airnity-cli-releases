@@ -186,6 +186,12 @@ airnity connect login fibery --with-token < token.txt
 # Log in to every browser-based service not connected yet, one after the other
 airnity connect login --all
 
+# From a program: start the login, print its authorizeUrl and flowId, and exit.
+# The login finishes in the browser; `connect flow` says where it stands:
+# pending, connected, or exit 1 with the reason it failed or expired
+airnity connect login slack --no-browser --no-wait -o json
+airnity connect flow <flow-id> -o json
+
 # Print a valid access token (-o json adds tokenType and expiresAt). From a
 # terminal, a service not connected yet goes through the login first.
 airnity connect token slack
