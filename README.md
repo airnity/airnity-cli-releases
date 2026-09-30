@@ -135,6 +135,10 @@ airnity logout -k
 airnity logout -g
 ```
 
+When the Keycloak login opens the browser, the same tab then signs in to the
+other Keycloak realms not connected yet (see [Service Connections](#service-connections)).
+Single sign-on answers them at once, and `airnity login` waits for them.
+
 #### Keycloak Auth
 
 ```shell
@@ -169,6 +173,11 @@ airnity gcloud login
 # Revoke GCloud tokens
 airnity gcloud logout
 ```
+
+`airnity gcloud login` checks your gcloud user login and your application-default
+credentials separately, and signs you in again when either is missing or expired. One
+Google login in the browser renews both. When only the application-default credentials
+have expired, they are renewed from your gcloud login without opening the browser.
 
 #### Service Connections
 
