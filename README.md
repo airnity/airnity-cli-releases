@@ -185,7 +185,8 @@ Connect Slack, Fibery or another Keycloak realm once; the CLI, bb plugins and
 scripts then all get their tokens from the connect broker.
 
 ```shell
-# List the services you can connect and their state
+# List the services you can connect, their state and, for Keycloak connectors, the
+# audiences (clients) they issue tokens for
 airnity connect list
 
 # Connect a service (opens the browser; API-token services prompt for the token)
@@ -210,11 +211,11 @@ airnity connect login slack github --no-browser --no-wait -o json
 airnity connect token slack
 
 # A token the realm issues to another of its clients, for APIs that only
-# accept their own audience
-airnity connect token keycloak-dev-main --audience boss-ui-dev
+# accept their own audience. `connect list` shows each connector's audiences
+airnity connect token keycloak-dev-airnity --audience argocd
 
 # Decode that token's header and claims (debug; the token itself is not printed)
-airnity connect debug-token keycloak-dev-main --audience boss-ui-dev
+airnity connect debug-token keycloak-dev-airnity --audience argocd
 
 # Check one connection (-o json prints the same envelope as `auth status`)
 airnity connect status slack
@@ -222,6 +223,9 @@ airnity connect status slack
 # Disconnect (the broker also revokes the tokens where the service allows it)
 airnity connect logout slack
 ```
+
+Shell completion offers the connector names after `connect login`, `connect token` and
+`connect debug-token`, and the connector's audiences after `--audience`.
 
 `AIRNITY_CONNECT_URL` points the CLI at another broker, for local testing.
 
@@ -239,7 +243,7 @@ curl http://127.0.0.1:47823/auth/token
 
 # A connect broker token, the same as 'airnity connect token'
 curl http://127.0.0.1:47823/connect/tokens/keycloak-dev-main
-curl "http://127.0.0.1:47823/connect/tokens/keycloak-dev-main?audience=boss-ui-dev"
+curl "http://127.0.0.1:47823/connect/tokens/keycloak-dev-airnity?audience=argocd"
 ```
 
 Any local process can call the server, an AI agent included, so `/connect/tokens` only
