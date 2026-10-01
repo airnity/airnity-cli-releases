@@ -135,9 +135,17 @@ airnity logout -k
 airnity logout -g
 ```
 
-When the Keycloak login opens the browser, the same tab then signs in to the
-other Keycloak realms not connected yet (see [Service Connections](#service-connections)).
-Single sign-on answers them at once, and `airnity login` waits for them.
+When the Keycloak login opens the browser, `--connect` makes the same tab
+then sign in to broker services (see [Service Connections](#service-connections)),
+in the order given. Single sign-on answers the Keycloak realms at once, and
+`airnity login` waits for them all:
+
+```shell
+airnity login --connect keycloak-dev-main,keycloak-prod-main,fibery,github
+```
+
+A service already connected, unknown, or taking an API token is skipped.
+When Keycloak needs no browser login, the services get a tab of their own.
 
 #### Keycloak Auth
 
