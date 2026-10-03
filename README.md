@@ -147,6 +147,24 @@ airnity login --connect keycloak-dev-main,keycloak-prod-main,fibery,github
 A service already connected, unknown, or taking an API token is skipped.
 When Keycloak needs no browser login, the services get a tab of their own.
 
+When the browser is on another machine than the CLI (a bb host, an SSH
+session, a pod), `--no-browser` prints a URL to open in any
+browser, on any device, and waits for the sign-in:
+
+```shell
+airnity login --keycloak --no-browser
+```
+
+With `--no-wait` it exits at once, for a program (an agent) that shows the URL
+elsewhere, then finishes the login with `airnity auth flow`:
+
+```shell
+airnity login --keycloak --no-browser --no-wait -o json
+# {"flowId":"…","status":"pending","authorizeUrl":"https://keycloak…","userCode":"ABCD-EFGH","expiresAt":"…"}
+airnity auth flow <flowId> -o json
+# {"flowId":"…","status":"pending"}, then {"flowId":"…","status":"connected","email":"…"}
+```
+
 #### Keycloak Auth
 
 ```shell
@@ -810,7 +828,7 @@ The `claude` command manages Claude Code configuration: bifrost MCP setup and pe
 
 Then the usual `model` (recommended: `opusplan`) and `effortLevel` (recommended: `high`), plus optional toggles (bundled skills, dynamic workflows, artifacts, and a few tool permissions) to reduce Claude Code's context usage.
 
-`configure` also installs a SessionStart hook into your global `settings.json` that injects a short instruction block into every Claude Code session, teaching it to prefer the airnity CLI (`airnity db`, `airnity argo`) over raw cloud tooling. If the `airnity` binary is ever missing, the hook silently does nothing. Your own hooks are never touched.
+`configure` also installs a SessionStart hook into your global `settings.json` that injects a short instruction block into every Claude Code session, teaching it to prefer the airnity CLI (`airnity db`, `airnity argo`) over raw cloud tooling, to hand you the logins it cannot do, and how to sign in to a connect service. It lists, live from the broker, the services whose token an agent may read; without a Keycloak session, or past 3 seconds, that list is left out. If the `airnity` binary is ever missing, the hook silently does nothing. Your own hooks are never touched.
 
 Regardless of which provider you pick as your default, `configure` always (re)writes `~/.claude/bifrost-settings.json`, a small overlay containing only the bifrost-specific settings. This means bifrost is always one command away, even on a Claude-Team-default machine: `configure`'s summary prints a one-time alias to add to your shell config —
 
