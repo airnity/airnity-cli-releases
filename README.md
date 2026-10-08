@@ -478,7 +478,10 @@ one bb serving and it is the one that gets upgraded.
 terminal, so background jobs survive. It uses launchd on macOS and a systemd
 user unit on Linux and WSL. It restarts the server after a crash but never
 after a deliberate stop, so `airnity bb stop` behaves as it reads — the service
-starts it again at your next login.
+starts it again at your next login. It names the node and bb it runs outright,
+so when node moves (a version manager such as nvm installs each version, and
+its global packages, in a directory of its own), `airnity bb install` and
+`airnity bb upgrade` point it at the ones now on your PATH and restart it.
 
 Once `mkt` is installed it refreshes the registry token before every install it
 drives; `airnity npm login` covers the installs it does not (bb's own install
