@@ -635,7 +635,9 @@ focused, its databases.
    These call the exact same functions as `db connect proxy/psql/pgadmin`.
 
    If a database shows a write-access status next to its name, `w` requests or revokes it
-   right there — see [Temporary Write Access](#temporary-write-access).
+   right there. `space` marks databases (across instances) to request them all at once, and
+   `v` (from either pane) lists everything you hold, to revoke in bulk — see
+   [Temporary Write Access](#temporary-write-access).
 
 3. **Proxy screen** (after `p`) — `↑↓` moves over the connection details and `enter` copies
    the highlighted one to the clipboard.
@@ -745,6 +747,34 @@ justification field) when the highlighted database has no access on it yet. If i
 has a grant or a pending request, `w` instead opens a confirmation to revoke it or withdraw
 the request. A request that is granted outright offers to connect right away.
 
+To ask for several databases at once, mark them first: `space` marks or unmarks the
+highlighted database, `a` marks or unmarks every one the filter shows, and `x` clears all
+marks. Marks stay when you move to another instance. Beside each instance, the
+instance pane counts what is marked there, your pending requests and your active grants,
+in that order (`2■ ▸1 ✓2`); a count of zero is left out.
+With anything marked, `w` opens one request form for all of them — one duration, one
+justification — and a result panel then shows, per database, whether it was granted or is
+awaiting approval. The server checks the batch as a whole: if it refuses any database
+(outside your read access, already writable, not found), it grants none of them, lists the
+refused ones, and keeps your marks so you can fix the selection and resend.
+
+The result panel of an accepted batch shows its id and offers `u` to undo it: one call
+revokes every grant it gave and withdraws every request it left pending, and the server
+changes each instance's roles once for all of them. A database whose roles another change
+was holding comes back busy and untouched; busy ones are replayed a few times, and if some
+are still busy the panel says so and `r` replays them. The server keeps no list of your
+batches, so this undo is only offered right after the request — keep the id for
+`db access revoke --batch` later.
+
+To hand access back in bulk, press `v` (`my access (N)` in the footer). It lists every
+grant and pending request you hold, across all instances, with the time left on each
+grant. `space` marks, `a` marks or unmarks all, and `w` revokes the marked grants and
+withdraws the marked requests after a confirmation — or just the highlighted one when
+nothing is marked. These grants may come from any number of batches, so each is its own
+call: one at a time within an instance (they share its role lock), instances in parallel.
+One failure does not stop the others: the result panel shows each outcome, and what failed
+stays marked to try again. `esc` closes.
+
 ```shell
 airnity db list databases -o json | jq -r '.databases[] | "\(.ref)\t\(.write)"'
 airnity db access grants                    # write access you currently hold
@@ -757,22 +787,41 @@ Requesting, holding and handing back access:
 # from 'db list databases -o json' (its "ref" field).
 airnity db access request my-cluster/orders --ttl 2h --justification "hotfix INC-4711"
 
-# Give it back early
+# Several refs go as one batch, with one --ttl and one --justification. It waits until
+# every database is applied, then prints each one's status and the batch id. If the
+# server refuses any ref, it grants none of them and lists each refused ref with its reason.
+airnity db access request my-cluster/orders my-cluster/billing --ttl 2h --justification "migration OPS-1234"
+
+# Undo a whole batch: every grant it gave is revoked, every request it left pending is
+# withdrawn, one line per database. Databases still busy after a few replays make the
+# command fail and print the command to replay. The id is the one 'request' printed.
+airnity db access revoke --batch <batch-id>
+
+# Give grants back early (several ids at once work too; each is reported on its own, one
+# at a time within an instance, instances in parallel)
 airnity db access grants                    # find the id
-airnity db access revoke <grant-id>
+airnity db access revoke <grant-id> [grant-id...]
 
 # Withdraw a request that is still waiting
-airnity db access cancel <request-id>
+airnity db access cancel <request-id> [request-id...]
 ```
 
 Some databases require an approver. Those requests queue instead of being granted, and
 `w` in `db browse` shows "awaiting approval" until one acts on it — approving or rejecting a
 request is done from the selfservice-database-rw web UI, not the CLI.
 
-`db access request` (and the `w` shortcut) refuse to run when the calling process identifies
-itself as an AI coding agent (e.g. `CLAUDECODE` is set) — a human must run this one. If you
+Requesting or revoking can be refused as retryable: when another change to your roles on
+the same instance holds the server's lock for more than 20 seconds, it answers 503, changes
+nothing, and says when to try again. `db access request`/`revoke`/`cancel`, and `w`, `u` and
+`v` in `db browse`, replay such a refusal twice, after the delay the server asks for, then
+show the server's message. Any other failure is shown at once and never replayed: it may
+have changed something.
+
+`db access request` (and the `w` shortcut, batched or not) refuse to run when the calling
+process identifies itself as an AI coding agent (e.g. `CLAUDECODE` is set) — a human must run this one. If you
 hit that refusal from a real terminal, check whether your shell inherited agent environment
-variables from a wrapping tool.
+variables from a wrapping tool. Handing access back — `revoke`, `revoke --batch`, `cancel` — stays open
+to an agent: it only takes rights away.
 
 #### What the CLI does not decide
 
