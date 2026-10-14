@@ -797,8 +797,9 @@ airnity db access request my-cluster/orders my-cluster/billing --ttl 2h --justif
 # command fail and print the command to replay. The id is the one 'request' printed.
 airnity db access revoke --batch <batch-id>
 
-# Give grants back early (several ids at once work too; each is reported on its own, one
-# at a time within an instance, instances in parallel)
+# Give grants back early. Several ids go in one call, which changes each instance's roles
+# once, one line per grant. Grants still busy after a few replays, or failed (an id that is
+# not yours reads "not found"), make the command fail; it prints the command to replay.
 airnity db access grants                    # find the id
 airnity db access revoke <grant-id> [grant-id...]
 
